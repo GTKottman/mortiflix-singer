@@ -162,3 +162,18 @@ def test_latin_words():
     assert phonemes('peccata') == ['p', 'eh', 'k', 'aa', 't', 'aa'] and phonemes('caelum')[0] == 'ch'
     assert syllables('Kyrie') == 3 and syllables('aeterna') == 3
     assert song.words_of([[0.0, 400.0, 60]], ['Deo'], TOKENS, 'la')[0].phonemes == ['d', 'eh', 'ao']
+
+
+@pytest.mark.skipif(not VOICE.exists(), reason='no voice installed')
+def test_tone_retake_keeps_the_pitch(tmp_path):
+    from engine.project import render_track
+    v = Voice(VOICE, ROOT / 'voices/nsf_hifigan')
+    p = {'ppq': 480, 'tempo': [{'tick': 0, 'bpm': 120}], 'tracks': []}
+    t = {'id': 't1', 'notes': [{'id': f'n{i}', 'tick': i * 480, 'dur': 480, 'pitch': m, 'lyric': w} for i, (m, w) in enumerate([(60, 'la'), (64, 'la'), (62, 'la')])],
+         'params': {'steps': 4}}
+    a = render_track(v, 'SPORE', p, t, tmp_path)[0]
+    t['tone_takes'] = {str(a['first_tick']): 1}
+    b = render_track(v, 'SPORE', p, t, tmp_path)[0]
+    pa, pb = np.array(a['pitch'])[:, 1], np.array(b['pitch'])[:, 1]
+    n = min(len(pa), len(pb))
+    assert b['hash'] != a['hash'] and np.abs(pa[:n] - pb[:n]).max() < 0.05      # new tone, the same pitch curve

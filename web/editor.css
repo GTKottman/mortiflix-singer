@@ -83,3 +83,4 @@ select.btn { width: auto; display: inline-block; }
 .keys { border-collapse: collapse; font-size: 13px; }
 .keys td { padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
 .keys td:first-child { color: var(--ink); font-family: ui-monospace, monospace; white-space: nowrap; }
+.takes { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 8px; align-items: center; margin: 10px 0; font-size: 13px; color: var(--muted); }

@@ -79,16 +79,25 @@ async function render(quality = 'final') {
     app.renders = d.tracks;
     const n = Object.values(d.tracks).reduce((a, x) => a + x.length, 0);
     status(`${n} phrase${n === 1 ? '' : 's'} rendered${quality === 'preview' ? ' (preview)' : ''}`);
-    draw();
+    draw(); if (app.sel.size === 1) inspector();      // the take lists follow the new render
   } catch (e) { status(`Render failed: ${e.message}`); }
 }
 function status(s) { $('status').textContent = s; }
 
 // ---- retakes: a new random draw of the phrase a note is in (kept by number, so you can go back) ----
 function phraseOf(n) { return (app.renders[app.track().id] || []).find((ph) => (ph.note_ids || []).includes(n.id)); }
-function retake(n, how) {
+function retake(n, how, kind = 'pitch') {
+  // kind 'pitch': a new draw of the whole phrase; 'tone': the same pitch curve, a new draw of the voice.
+  // how: +1 = a new take, or a take number to go back to (all takes stay cached, so going back is instant)
   const ph = phraseOf(n); if (!ph) { status('Render first, then retake'); return; }
-  app.edit(how === 0 ? 'first take' : 'retake', (p) => { const t = app.trackOf(p); t.takes = t.takes || {}; t.takes[String(ph.first_tick)] = how === 0 ? 0 : (t.takes[String(ph.first_tick)] || 0) + 1; });
+  const ft = String(ph.first_tick), field = kind === 'tone' ? 'tone_takes' : 'takes';
+  app.edit(kind === 'tone' ? 'tone take' : 'pitch take', (p) => {
+    const t = app.trackOf(p); t[field] = t[field] || {}; t.take_max = t.take_max || {};
+    const mx = t.take_max[ft] || { p: 0, q: 0 }, k = kind === 'tone' ? 'q' : 'p';
+    const next = how === +1 ? mx[k] + 1 : how;
+    t[field][ft] = next; mx[k] = Math.max(mx[k], next); t.take_max[ft] = mx;
+    if (kind === 'pitch' && how === +1 && t.tone_takes) t.tone_takes[ft] = 0;      // a new pitch take starts from its own tone
+  });
   clearTimeout(renderTimer); render('final');
 }
 
@@ -334,7 +343,8 @@ function inspector() {
     <label>Lead-in</label><input id="i-lead" type="number" min="20" max="600" step="10" placeholder="auto" title="how early the consonants before the vowel start, ms">
     <label>Glide</label><input id="i-glide" type="number" min="10" max="1000" step="10" placeholder="auto" title="how long the slide from the previous note takes, ms">
     <label>Glide at</label><input id="i-goff" type="number" min="-500" max="500" step="10" title="where the slide is centred, ms after the note starts (negative = early)">
-    </div><p><button id="i-retake" class="btn tiny" title="A new take of this phrase (R)">Retake phrase</button> <button id="i-take0" class="btn tiny">First take</button> <span id="i-take" class="muted"></span></p><p class="phones" id="i-auto"></p><div id="i-timing" class="timing"></div><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
+    </div><div class="takes"><label>Pitch take</label><select id="i-ptake"></select><button id="i-retake" class="btn tiny" title="A new draw of the whole phrase (R)">New</button>
+      <label>Tone take</label><select id="i-ttake"></select><button id="i-retone" class="btn tiny" title="The same pitch, a new draw of the voice (T)">New</button></div><p class="phones" id="i-auto"></p><div id="i-timing" class="timing"></div><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
   $('i-lyric').value = many ? '' : n.lyric || ''; $('i-ph').value = n.phonemes || ''; $('i-note').textContent = `${NAMES[n.pitch % 12]}${Math.floor(n.pitch / 12) - 1} · ${(n.dur / PPQ).toFixed(2)} beats`;
   $('i-vel').value = n.vel ?? 64; $('i-vd').value = n.vib_depth ?? 0; $('i-vr').value = n.vib_rate ?? 5.5; $('i-vs').value = n.vib_start ?? 250;
   const setn = (k, conv = (v) => v) => (e) => app.edit(k, (p) => { for (const m of app.trackOf(p).notes) if (app.sel.has(m.id)) m[k] = conv(e.target.value); });
@@ -342,8 +352,13 @@ function inspector() {
   $('i-lead').value = n.lead ?? ''; $('i-lead').onchange = setn('lead', (v) => (v === '' ? null : Number(v)));
   $('i-glide').value = n.glide ?? ''; $('i-glide').onchange = setn('glide', (v) => (v === '' ? null : Number(v)));
   $('i-goff').value = n.glide_offset ?? 0; $('i-goff').onchange = setn('glide_offset', Number);
-  const ph = phraseOf(n); $('i-take').textContent = ph ? `take ${ph.take + 1}` : '';
-  $('i-retake').onclick = () => retake(n, +1); $('i-take0').onclick = () => retake(n, 0);
+  const ph = phraseOf(n), mx = { ...(ph ? (t.take_max || {})[String(ph.first_tick)] || { p: 0, q: 0 } : { p: 0, q: 0 }) };
+  if (ph) { mx.p = Math.max(mx.p, ph.take || 0); mx.q = Math.max(mx.q, ph.tone || 0); }   // projects from before take lists
+  for (let k = 0; k <= mx.p; k++) $('i-ptake').add(new Option(String(k + 1), String(k), false, ph && ph.take === k));
+  $('i-ttake').add(new Option('its own', '0', false, !ph?.tone)); for (let k = 1; k <= mx.q; k++) $('i-ttake').add(new Option(`tone ${k}`, String(k), false, ph?.tone === k));
+  $('i-ptake').disabled = $('i-ttake').disabled = !ph;
+  $('i-ptake').onchange = (e) => retake(n, Number(e.target.value), 'pitch'); $('i-ttake').onchange = (e) => retake(n, Number(e.target.value), 'tone');
+  $('i-retake').onclick = () => retake(n, +1, 'pitch'); $('i-retone').onclick = () => retake(n, +1, 'tone');
   $('i-vel').onchange = setn('vel', Number); $('i-vd').onchange = setn('vib_depth', Number); $('i-vr').onchange = setn('vib_rate', Number); $('i-vs').onchange = setn('vib_start', Number);
   if (app.syllableTrouble().has(n.id)) $('i-warn').textContent = 'This word has more syllables than notes: split it over more notes (sun- rise), or pick a shorter word.';
   if (!many) phonemeTiming(n);
@@ -520,7 +535,8 @@ function keys(e) {
   else if (mod && e.key === 'k') { e.preventDefault(); check(); }
   else if ((e.key === 'g' || e.key === 'G') && !mod) makeGroup();
   else if (e.key === 'Escape' && app.groupEdit) leaveGroup();
-  else if ((e.key === 'r' || e.key === 'R') && !mod) { const n = t.notes.find((m) => app.sel.has(m.id)); if (n) retake(n, +1); }
+  else if ((e.key === 'r' || e.key === 'R') && !mod) { const n = t.notes.find((m) => app.sel.has(m.id)); if (n) retake(n, +1, 'pitch'); }
+  else if ((e.key === 't' || e.key === 'T') && !mod) { const n = t.notes.find((m) => app.sel.has(m.id)); if (n) retake(n, +1, 'tone'); }
   else if (mod && e.key === 'a') { e.preventDefault(); t.notes.forEach((n) => app.sel.add(n.id)); changed('select'); }
   else if (mod && e.key === 'c') { clipboard = t.notes.filter((n) => app.sel.has(n.id)).map((n) => ({ ...n })); }
   else if (mod && e.key === 'v' && clipboard?.length) {

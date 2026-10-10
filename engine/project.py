@@ -155,21 +155,36 @@ def render_track(voice: Voice, voice_id: str, project, track, cache: Path, quali
         sig = {k: [p for p in (track.get('lanes') or {}).get(k, []) if a <= tm.to_ms(p[0]) <= b] for k in LANES}
         sig['draw'] = [p for p in (track.get('pitch_draw') or []) if a <= tm.to_ms(p[0]) <= b]
         first_tick = round(tm.to_tick(ph[0].notes[0].start))
-        take = int((track.get('takes') or {}).get(str(first_tick), 0))
-        key = phrase_key(voice_id, ph, track, sig, {'steps': steps, 'expr': expr, 'correct': params.get('correct', 1.0), 'take': take})
+        take = int((track.get('takes') or {}).get(str(first_tick), 0))           # pitch take (a new draw of everything)
+        tone = int((track.get('tone_takes') or {}).get(str(first_tick), 0))      # tone take: same pitch, new voice draw
+        base = {'steps': steps, 'expr': expr, 'correct': params.get('correct', 1.0), 'take': take}
+        key = phrase_key(voice_id, ph, track, sig, {**base, 'tone': tone} if tone else base)
         wav_f, meta_f = cache / f'{key}.wav', cache / f'{key}.json'
         if wav_f.exists() and meta_f.exists():
             meta = json.loads(meta_f.read_text())
         else:
+            override = drawn
+            if tone:           # keep the pitch take's exact curve: render (or reuse) the pitch take, then follow its pitch
+                bkey = phrase_key(voice_id, ph, track, sig, base); bmeta = cache / f'{bkey}.json'
+                if not bmeta.exists():
+                    w0, t00, c0 = voice.render_phrase(ph, steps=steps, expr=expr, correct=params.get('correct', 1.0), seed=i,
+                                                      lanes=lanes, offsets=offsets, pitch_override=drawn)
+                    sf.write(cache / f'{bkey}.wav', w0, voice.sr, subtype='FLOAT')
+                    fm0 = c0['frame_ms']
+                    bmeta.write_text(json.dumps({'hash': bkey, 'start_ms': t00, 'end_ms': t00 + len(w0) / voice.sr * 1000,
+                                                 'pitch': [[round(t00 + j * fm0, 1), round(float(m), 3)] for j, m in enumerate(c0['pitch']) if j % 2 == 0],
+                                                 'phones': [[q, round(a_, 1), round(b_, 1)] for q, a_, b_ in c0['phones']]}))
+                bp = np.array(json.loads(bmeta.read_text())['pitch'], float)
+                override = lambda ms, bp=bp: np.interp(ms, bp[:, 0], bp[:, 1])
             wav, t0, c = voice.render_phrase(ph, steps=steps, expr=expr, correct=params.get('correct', 1.0), seed=i,
-                                             lanes=lanes, offsets=offsets, pitch_override=drawn)
+                                             lanes=lanes, offsets=offsets, pitch_override=override)
             sf.write(wav_f, wav, voice.sr, subtype='FLOAT')
             fm = c['frame_ms']
             pitch = [[round(t0 + j * fm, 1), round(float(m), 3)] for j, m in enumerate(c['pitch']) if j % 2 == 0]
             meta = {'hash': key, 'first_tick': first_tick, 'take': take, 'start_ms': t0, 'end_ms': t0 + len(wav) / voice.sr * 1000, 'pitch': pitch,
                     'phones': [[p, round(s, 1), round(e, 1)] for p, s, e in c['phones']]}
             meta_f.write_text(json.dumps(meta))
-        meta['file'] = str(wav_f); meta['first_tick'] = first_tick; meta['take'] = take
+        meta['file'] = str(wav_f); meta['first_tick'] = first_tick; meta['take'] = take; meta['tone'] = tone
         meta['note_ids'] = [n['id'] for n in track['notes'] if any(abs(tm.to_ms(n['tick']) - en.start) < 0.5 for w in ph for en in w.notes)]
         out.append(meta)
         if on_phrase: on_phrase(i, meta)
