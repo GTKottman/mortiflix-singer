@@ -250,7 +250,7 @@ function tracks() {
       <label title="move the part by octaves (semitones)">Shift <input class="tr num" type="number" step="12"></label></div>`;
     el.querySelector('.name').value = t.name;
     const vs = el.querySelector('.voice'); for (const v of app.voices.length ? app.voices : [{ name: t.voice }]) vs.add(new Option(v.name, v.name, false, v.name === t.voice));
-    const ms = el.querySelector('.mode'); for (const m of app.modes) ms.add(new Option(m, m, false, m === t.mode));
+    const ms = el.querySelector('.mode'); for (const m of [...app.modes, ...Object.keys(p.modes || {})]) ms.add(new Option(m, m, false, m === t.mode));
     el.querySelector('.m').classList.toggle('on', !!t.mute); el.querySelector('.s').classList.toggle('on', !!t.solo);
     el.querySelector('.gain').value = t.gain_db || 0; el.querySelector('.tr').value = t.transpose || 0;
     const set = (label, k, v) => app.edit(label, (q) => { q.tracks.find((x) => x.id === t.id)[k] = v; });
@@ -316,6 +316,37 @@ function backing() {
   const row = document.createElement('div'); row.className = 'row'; row.append(pick, rm); el.append(row);
   box.append(el);
 }
+// song-wide settings: export format, and your own vocal modes (offsets on the expression curves)
+const MODE_KEYS = [['energy', 'Energy dB', 1], ['breathiness', 'Breath dB', 1], ['voicing', 'Voicing dB', 1], ['tension', 'Tension', 0.5], ['gender', 'Gender', 0.05]];
+function songPanel(box) {
+  const p = app.project(), ex = p.export || { rate: 44100, bits: 24 };
+  const h = document.createElement('h3'); h.textContent = 'Song'; box.append(h);
+  const kv = document.createElement('div'); kv.className = 'kv';
+  kv.innerHTML = `<label>Export rate</label><select id="s-rate"><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option></select>
+    <label>Export depth</label><select id="s-bits"><option value="16">16-bit</option><option value="24">24-bit</option><option value="32">32-bit float</option></select>`;
+  box.append(kv);
+  $('s-rate').value = String(ex.rate); $('s-bits').value = String(ex.bits);
+  $('s-rate').onchange = (e) => app.edit('export rate', (q) => { q.export = { ...(q.export || { bits: 24 }), rate: Number(e.target.value) }; });
+  $('s-bits').onchange = (e) => app.edit('export depth', (q) => { q.export = { ...(q.export || { rate: 44100 }), bits: Number(e.target.value) }; });
+  const mh = document.createElement('h3'); mh.textContent = 'Your vocal modes'; box.append(mh);
+  for (const [name, m] of Object.entries(p.modes || {})) {
+    const row = document.createElement('div'); row.className = 'mode-row';
+    const nm = document.createElement('b'); nm.textContent = name; row.append(nm);
+    for (const [k, label, step] of MODE_KEYS) {
+      const l = document.createElement('label'); l.textContent = label;
+      const inp = document.createElement('input'); inp.type = 'number'; inp.step = String(step); inp.value = m[k] ?? 0;
+      inp.onchange = () => app.edit('vocal mode', (q) => { q.modes[name][k] = Number(inp.value) || 0; }); l.append(inp); row.append(l);
+    }
+    const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = 'Remove';
+    rm.onclick = () => app.edit('remove vocal mode', (q) => { delete q.modes[name]; for (const t of q.tracks) if (t.mode === name) t.mode = 'Default'; });
+    row.append(rm); box.append(row);
+  }
+  const add = document.createElement('div'); add.className = 'row';
+  const nm = document.createElement('input'); nm.placeholder = 'New mode name'; nm.className = 'mode-name';
+  const go = document.createElement('button'); go.className = 'btn tiny'; go.textContent = 'Add mode';
+  go.onclick = () => { const name = nm.value.trim(); if (!name || app.modes.includes(name)) return; app.edit('add vocal mode', (q) => { q.modes = { ...(q.modes || {}), [name]: { energy: 0, breathiness: 0, voicing: 0, tension: 0, gender: 0 } }; }); };
+  add.append(nm, go); box.append(add);
+}
 function inspector() {
   const box = $('inspector'), t = app.track(); box.textContent = '';
   if (app.selRef && groupPanel(box)) return;
@@ -329,6 +360,7 @@ function inspector() {
     $('i-expr').value = t.params?.expr ?? 1; $('i-corr').value = t.params?.correct ?? 1; $('i-steps').value = t.params?.steps ?? 20;
     const setp = (k) => (e) => app.edit(k, (p) => { const x = app.trackOf(p); x.params = { ...(x.params || {}), [k]: Number(e.target.value) }; });
     $('i-expr').onchange = setp('expr'); $('i-corr').onchange = setp('correct'); $('i-steps').onchange = setp('steps');
+    songPanel(box);
     return;
   }
   const n = sel[0], many = sel.length > 1;
@@ -343,6 +375,8 @@ function inspector() {
     <label>Lead-in</label><input id="i-lead" type="number" min="20" max="600" step="10" placeholder="auto" title="how early the consonants before the vowel start, ms">
     <label>Glide</label><input id="i-glide" type="number" min="10" max="1000" step="10" placeholder="auto" title="how long the slide from the previous note takes, ms">
     <label>Glide at</label><input id="i-goff" type="number" min="-500" max="500" step="10" title="where the slide is centred, ms after the note starts (negative = early)">
+    <label>Scoop</label><input id="i-scoop" type="number" min="0" max="400" step="10" title="start this many cents below the note and rise into it">
+    <label>Overshoot</label><input id="i-over" type="number" min="0" max="300" step="10" title="go this many cents past the note just after arriving">
     </div><div class="takes"><label>Pitch take</label><select id="i-ptake"></select><button id="i-retake" class="btn tiny" title="A new draw of the whole phrase (R)">New</button>
       <label>Tone take</label><select id="i-ttake"></select><button id="i-retone" class="btn tiny" title="The same pitch, a new draw of the voice (T)">New</button></div><p class="phones" id="i-auto"></p><div id="i-timing" class="timing"></div><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
   $('i-lyric').value = many ? '' : n.lyric || ''; $('i-ph').value = n.phonemes || ''; $('i-note').textContent = `${NAMES[n.pitch % 12]}${Math.floor(n.pitch / 12) - 1} · ${(n.dur / PPQ).toFixed(2)} beats`;
@@ -352,6 +386,8 @@ function inspector() {
   $('i-lead').value = n.lead ?? ''; $('i-lead').onchange = setn('lead', (v) => (v === '' ? null : Number(v)));
   $('i-glide').value = n.glide ?? ''; $('i-glide').onchange = setn('glide', (v) => (v === '' ? null : Number(v)));
   $('i-goff').value = n.glide_offset ?? 0; $('i-goff').onchange = setn('glide_offset', Number);
+  $('i-scoop').value = n.scoop ?? 0; $('i-scoop').onchange = setn('scoop', Number);
+  $('i-over').value = n.overshoot ?? 0; $('i-over').onchange = setn('overshoot', Number);
   const ph = phraseOf(n), mx = { ...(ph ? (t.take_max || {})[String(ph.first_tick)] || { p: 0, q: 0 } : { p: 0, q: 0 }) };
   if (ph) { mx.p = Math.max(mx.p, ph.take || 0); mx.q = Math.max(mx.q, ph.tone || 0); }   // projects from before take lists
   for (let k = 0; k <= mx.p; k++) $('i-ptake').add(new Option(String(k + 1), String(k), false, ph && ph.take === k));
@@ -418,7 +454,8 @@ async function openDialog() {
 async function download(kind) {
   status(kind.startsWith('wav') ? 'Rendering the mix…' : 'Exporting…');
   const fmt = kind.startsWith('wav') ? 'wav' : kind;
-  const r = await post('/export', { project: app.project(), format: fmt, track: kind === 'wav-track' ? app.track().id : null, bits: 24, include_backing: kind === 'wav-full' });
+  const ex = app.project().export || {};
+  const r = await post('/export', { project: app.project(), format: fmt, track: kind === 'wav-track' ? app.track().id : null, bits: ex.bits || 24, sample_rate: ex.rate || 44100, include_backing: kind === 'wav-full' });
   if (!r.ok) { status(`Export failed: ${(await r.json()).error}`); return; }
   const blob = await r.blob(), a = document.createElement('a'), ext = { wav: 'wav', mid: 'mid', musicxml: 'musicxml', msing: 'msing' }[fmt];
   a.href = URL.createObjectURL(blob); a.download = `${app.project().title || 'song'}${kind === 'wav-track' ? ` - ${app.track().name}` : kind === 'wav-full' ? ' (with music)' : ''}.${ext}`; a.click();

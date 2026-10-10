@@ -33,6 +33,8 @@ class Note:
     lead: float | None = None  # the consonants before this note's vowel last this long (ms), instead of the model's
     glide: float | None = None # the slide from the previous note into this one takes this long (ms), instead of the model's
     glide_offset: float = 0.0  # ... and is centred this many ms after the note starts (negative = it arrives early)
+    scoop: float = 0.0         # cents below the note at its start, rising into it over ~120 ms
+    overshoot: float = 0.0     # cents above the note just after arriving (peak ~60 ms in, gone by ~200 ms)
 
 
 @dataclass
@@ -237,6 +239,13 @@ class Voice:
                     p0, p1 = pitch[max(a - 1, 0)], pitch[min(b, total - 1)]
                     x = np.linspace(0, 1, b - a); pitch[a:b] = p0 + (p1 - p0) * (x * x * (3 - 2 * x))
             prev = n
+        for n in notes:                                   # per-note scoop (from below) and overshoot (past the note)
+            if (not n.scoop and not n.overshoot) or id(n) in breath: continue
+            a = frame_of(n.start); b = frame_of(min(n.start + n.dur, n.start + 260))
+            if b <= a: continue
+            tt = times[a:b] - n.start
+            if n.scoop: pitch[a:b] -= n.scoop / 100 * np.clip(1 - tt / 120, 0, 1) ** 2
+            if n.overshoot: pitch[a:b] += n.overshoot / 100 * (tt / 60) * np.exp(1 - tt / 60) * (tt < 260)
         if pitch_override is not None:
             ov = np.asarray(pitch_override(times), float)
             pitch = np.where(np.isnan(ov), pitch, ov)

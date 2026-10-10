@@ -469,6 +469,11 @@ class Handler(BaseHTTPRequestHandler):
                     if a0 < 0: y, a0 = y[-a0:], 0
                     if len(mix) < a0 + len(y): mix = np.concatenate([mix, np.zeros((a0 + len(y) - len(mix), 2), np.float32)])
                     mix[a0:a0 + len(y)] += y
+                rate = int(req.get('sample_rate') or sr)
+                if rate != sr:                       # 48 kHz for video work: one high-quality resample of the finished mix
+                    from scipy.signal import resample_poly
+                    from math import gcd
+                    g = gcd(rate, sr); mix = resample_poly(mix, rate // g, sr // g, axis=0).astype(np.float32); sr = rate
                 bits = {'16': 'PCM_16', '24': 'PCM_24', '32': 'FLOAT'}.get(str(req.get('bits', 24)), 'PCM_24')
                 buf = io.BytesIO(); sf.write(buf, mix, sr, subtype=bits, format='WAV')
                 return self.send(200, buf.getvalue(), 'audio/wav')

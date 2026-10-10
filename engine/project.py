@@ -104,6 +104,7 @@ def track_words(voice: Voice, project, track):
             en.lead = float(n['lead']) if n.get('lead') not in (None, '') else None
             en.glide = float(n['glide']) if n.get('glide') not in (None, '') else None
             en.glide_offset = float(n.get('glide_offset') or 0)
+            en.scoop = float(n.get('scoop') or 0); en.overshoot = float(n.get('overshoot') or 0)
             v = n.get('vel', 64)
             en.energy = 6 * (v - 64) / 63 if v >= 64 else 12 * (v - 64) / 63
     return words, tm
@@ -129,7 +130,7 @@ def expand_groups(project):
 
 
 def phrase_key(voice_id, words, track, lanes_sig, params):
-    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead, n.glide, n.glide_offset) for n in w.notes] + [w.phonemes, w.scales] for w in words],
+    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead, n.glide, n.glide_offset, n.scoop, n.overshoot) for n in w.notes] + [w.phonemes, w.scales] for w in words],
             'mode': track.get('mode', 'Default'), 'ms': track.get('mode_strength', 1.0), 'lang': track.get('lang', 'en'), 'lanes': lanes_sig, 'p': params}
     return hashlib.sha1(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
@@ -142,7 +143,7 @@ def render_track(voice: Voice, voice_id: str, project, track, cache: Path, quali
     if not words: return []
     params = dict(track.get('params') or {})
     steps = 8 if quality == 'preview' else int(params.get('steps', 20))
-    mode = MODES.get(track.get('mode', 'Default'), {})
+    mode = {**MODES, **(project.get('modes') or {})}.get(track.get('mode', 'Default'), {})
     strength = float(track.get('mode_strength', 1.0))           # 0 = off, 1 = as designed, 2 = twice as strong
     offsets = {k: v * strength for k, v in mode.items() if not k.startswith('_')}
     base_expr = params.get('expr', 1.0)
@@ -157,7 +158,7 @@ def render_track(voice: Voice, voice_id: str, project, track, cache: Path, quali
         first_tick = round(tm.to_tick(ph[0].notes[0].start))
         take = int((track.get('takes') or {}).get(str(first_tick), 0))           # pitch take (a new draw of everything)
         tone = int((track.get('tone_takes') or {}).get(str(first_tick), 0))      # tone take: same pitch, new voice draw
-        base = {'steps': steps, 'expr': expr, 'correct': params.get('correct', 1.0), 'take': take}
+        base = {'steps': steps, 'expr': expr, 'correct': params.get('correct', 1.0), 'take': take, 'mo': offsets}
         key = phrase_key(voice_id, ph, track, sig, {**base, 'tone': tone} if tone else base)
         wav_f, meta_f = cache / f'{key}.wav', cache / f'{key}.json'
         if wav_f.exists() and meta_f.exists():
