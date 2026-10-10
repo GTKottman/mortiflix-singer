@@ -12,7 +12,7 @@ from .ds import Voice, Note, Word
 _g2p = None
 
 
-LANGS = {'en': 'English', 'la': 'Latin', 'es': 'Spanish', 'it': 'Italian'}
+LANGS = {'en': 'English', 'la': 'Latin', 'es': 'Spanish', 'it': 'Italian', 'ja': 'Japanese'}
 
 
 def phonemes(word: str, voice_tokens, lang: str = 'en') -> list[str]:
@@ -21,9 +21,10 @@ def phonemes(word: str, voice_tokens, lang: str = 'en') -> list[str]:
     if lang == 'la':
         from .lang_la import phonemes as la
         return [p for p in la(word) if p in voice_tokens]
-    if lang in ('es', 'it'):
+    if lang in ('es', 'it', 'ja'):
         from . import lang_rules
-        return [p for p in (lang_rules.spanish if lang == 'es' else lang_rules.italian)(word) if p in voice_tokens]
+        fn = {'es': lang_rules.spanish, 'it': lang_rules.italian, 'ja': lang_rules.japanese}[lang]
+        return [p for p in fn(word) if p in voice_tokens]
     global _g2p
     if _g2p is None:
         from g2p_en import G2p

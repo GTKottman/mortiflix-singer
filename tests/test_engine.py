@@ -186,3 +186,10 @@ def test_spanish_and_italian_words():
     assert italian('figlio') == ['f', 'iy', 'l', 'y', 'ow'] and italian('scena') == ['sh', 'eh', 'n', 'aa']
     assert italian('acqua') == ['aa', 'k', 'w', 'aa'] and italian('ciao') == ['ch', 'aa', 'ow']      # sung "cia-o"
     assert spanish('y') == ['iy'] and spanish('hoy') == ['ow', 'y']
+
+
+def test_japanese_kana_and_romaji():
+    from engine.lang_rules import japanese
+    assert japanese('さくら') == japanese('sakura') == ['s', 'aa', 'k', 'uw', 'r', 'aa']
+    assert japanese('きゃく') == ['k', 'y', 'aa', 'k', 'uw'] and japanese('しゃしん') == ['sh', 'aa', 'sh', 'iy', 'n']
+    assert japanese('がっこう') == ['g', 'aa', 'k', 'ow', 'uw'] and japanese('tsuki') == ['t', 's', 'uw', 'k', 'iy']

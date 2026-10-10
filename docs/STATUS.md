@@ -27,7 +27,7 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 | Lanes: tension, breathiness, voicing, energy, gender, velocity | ✅ | mouth opening: no open model exposes it |
 | Vocal modes, user-defined, with strength | ✅ | built-in six + your own (Song panel) |
 | Duration and strength per note | ✅ | phoneme lengths, velocity |
-| Cross-lingual | 🟡 | English, Latin, Spanish, Italian (rule files, per track); more languages = more rule files; the voices are English, so foreign sounds use the nearest English ones |
+| Cross-lingual | 🟡 | English, Latin, Spanish, Italian, Japanese (kana or romaji) (rule files, per track); more languages = more rule files; the voices are English, so foreign sounds use the nearest English ones |
 | Breaths (auto and manual) | ✅ | `br` notes; "Breaths before phrases" script |
 
 ## Sound and output

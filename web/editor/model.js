@@ -47,6 +47,11 @@ export function splitLyrics(text) {
 
 // syllables in a word (vowel groups, silent final e): for the red "too many syllables" warning
 export function syllables(word, lang = 'en') {
+  if (lang === 'ja') {        // Japanese: one mora per note: every kana (small ya/yu/yo and small tsu ride on the one before) or romaji vowel / syllabic n
+    if (/[\u3040-\u30ff]/.test(word)) return Math.max(1, [...word].filter((c) => /[\u3040-\u30ff]/.test(c) && !'ゃゅょャュョっッー'.includes(c)).length);
+    const w = word.toLowerCase().replace(/[^a-z]/g, '');
+    return Math.max(1, (w.match(/[aiueo]/g) || []).length + (w.match(/n(?![aiueoy])/g) || []).length);
+  }
   if (lang === 'es' || lang === 'it') {    // Spanish/Italian: every vowel sings, except i/u gliding next to another vowel
     const w = word.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '').replace(/[qg]u(?=[aeio])/g, 'q');
     const v = (w.match(/[aeiou]/g) || []).length, glides = (w.match(/[iu](?=[aeo])|(?<=[aeo])[iu](?![aeiou])/g) || []).length;
