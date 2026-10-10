@@ -91,6 +91,10 @@ def install(home: Path, sources: Path, progress=print):
     if not python_of(home).exists():
         progress('Getting Python'); run('venv', '-q', '-p', '3.11', venv)
     if not (k / '.done').exists():
+        # pyworld (pinned by DiffSinger) only ships Windows wheels, so Linux and macOS compile it: say so up front
+        if os.name != 'nt' and not (shutil.which('c++') or shutil.which('g++') or shutil.which('clang++')):
+            raise RuntimeError('a C++ compiler is needed once: on macOS run "xcode-select --install", on Linux install your '
+                               'distribution\'s build tools (e.g. build-essential), then press Install again')
         gpu = shutil.which('nvidia-smi') is not None and sys.platform != 'darwin'
         progress('Installing PyTorch' + (' for your NVIDIA card' if gpu else ''))
         run('pip', 'install', '-q', '-p', python_of(home), 'torch', 'torchaudio', *(['--index-url', 'https://download.pytorch.org/whl/cu124'] if gpu else []))
