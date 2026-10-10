@@ -19,6 +19,7 @@ jobs:
       matrix:
         os: [windows-latest, macos-14, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,7 +44,9 @@ jobs:
           head -c 200 "$RUNNER_TEMP/out.bin"; grep -q "200 OK" "$RUNNER_TEMP/out.bin"
       - name: Build the app
         working-directory: app
-        run: npx --yes @tauri-apps/cli@2 build
+        shell: bash
+        # Linux: .deb + AppImage (the .rpm step spent 10+ minutes compressing the bundled service and never finished)
+        run: npx --yes @tauri-apps/cli@2 build ${{ runner.os == 'Linux' && '--bundles deb,appimage' || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: mortiflix-singer-${{ matrix.os }}

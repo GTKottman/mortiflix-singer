@@ -21,6 +21,7 @@ jobs:
           - { os: macos-14, args: '--target x86_64-apple-darwin --target aarch64-apple-darwin', universal: true }
           - { os: ubuntu-22.04, args: '' }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     defaults: { run: { working-directory: plugin } }
     steps:
       - uses: actions/checkout@v4
