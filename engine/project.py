@@ -90,7 +90,7 @@ def track_words(voice: Voice, project, track):
         lyr = (n.get('lyric') or 'la').strip() or 'la'
         if n.get('phonemes'): lyr = f"{lyr.rstrip('-')}{{{n['phonemes']}}}" + ('-' if lyr.endswith('-') else '')
         toks.append(lyr)
-    words = song.words_of(raw, toks, voice.tokens)
+    words = song.words_of(raw, toks, voice.tokens, track.get('lang', 'en'))
     by_start = {round(tm.to_ms(n['tick']), 3): n for n in notes}
     for w in words:                                   # per-phoneme lengths live on the word's first note
         n0 = by_start.get(round(w.notes[0].start, 3))
@@ -130,7 +130,7 @@ def expand_groups(project):
 
 def phrase_key(voice_id, words, track, lanes_sig, params):
     data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead, n.glide, n.glide_offset) for n in w.notes] + [w.phonemes, w.scales] for w in words],
-            'mode': track.get('mode', 'Default'), 'ms': track.get('mode_strength', 1.0), 'lanes': lanes_sig, 'p': params}
+            'mode': track.get('mode', 'Default'), 'ms': track.get('mode_strength', 1.0), 'lang': track.get('lang', 'en'), 'lanes': lanes_sig, 'p': params}
     return hashlib.sha1(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
 

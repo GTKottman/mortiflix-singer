@@ -13,9 +13,15 @@ from .ds import Voice, Note, Word, VOWELS
 _g2p = None
 
 
-def phonemes(word: str, voice_tokens) -> list[str]:
+LANGS = {'en': 'English', 'la': 'Latin'}
+
+
+def phonemes(word: str, voice_tokens, lang: str = 'en') -> list[str]:
     m = re.search(r'\{(.+?)\}', word)
     if m: return m.group(1).split()
+    if lang == 'la':
+        from .lang_la import phonemes as la
+        return [p for p in la(word) if p in voice_tokens]
     global _g2p
     if _g2p is None:
         from g2p_en import G2p
@@ -49,7 +55,7 @@ def read_midi(path, channel=None):
 BREATHS = ('br', 'ap', 'breath')
 
 
-def words_of(notes, tokens, voice_tokens):
+def words_of(notes, tokens, voice_tokens, lang='en'):
     """Pair notes with lyric tokens into Words (silent notes dropped)."""
     words, cur = [], None
     for (s, d, p), tok in zip(notes, tokens):
@@ -64,8 +70,8 @@ def words_of(notes, tokens, voice_tokens):
         else:
             cur = Word([n], []); cur.text = tok.rstrip('-'); words.append(cur)
         if not tok.endswith('-'):
-            cur.phonemes = phonemes(cur.text, voice_tokens) or ['ah']; cur = None
-    if cur is not None: cur.phonemes = phonemes(cur.text, voice_tokens) or ['ah']
+            cur.phonemes = phonemes(cur.text, voice_tokens, lang) or ['ah']; cur = None
+    if cur is not None: cur.phonemes = phonemes(cur.text, voice_tokens, lang) or ['ah']
     return words
 
 

@@ -36,7 +36,7 @@ const app = {
       if ((i > 0 && (ns[i - 1].lyric || '').endsWith('-'))) continue;
       const group = [ns[i]]; let j = i; while ((ns[j].lyric || '').endsWith('-') && j + 1 < ns.length) group.push(ns[++j]);
       const word = group.map((n) => (n.lyric || '').replace(/-$/, '')).join('');
-      if (syllables(word) > group.length) group.forEach((n) => bad.add(n.id));
+      if (syllables(word, t.lang) > group.length) group.forEach((n) => bad.add(n.id));
     }
     return bad;
   },
@@ -123,7 +123,7 @@ async function phonemeTiming(n) {
   const w = wordOf(n), box = $('i-timing'); if (!w || !box) return;
   let phs = w.first.phonemes ? w.first.phonemes.split(/\s+/) : null;
   if (!phs) {
-    const d = await (await post('/phonemize', { voice: app.track().voice, words: [w.text] })).json();
+    const d = await (await post('/phonemize', { voice: app.track().voice, lang: app.track().lang || 'en', words: [w.text] })).json();
     phs = Object.values(d.phonemes || {})[0] || [];
   }
   if (!phs.length || !$('i-timing')) return;
@@ -235,7 +235,7 @@ function tracks() {
   const p = app.project(), box = $('tracks'); box.textContent = '';
   for (const t of p.tracks) {
     const el = document.createElement('div'); el.className = `track${t.id === app.track().id ? ' on' : ''}`;
-    el.innerHTML = `<input class="name" value=""><div class="row"><select class="voice"></select><select class="mode"></select><label class="mstr-l" title="how strongly the vocal mode is applied">Strength <input class="mstr num" type="number" min="0" max="200" step="10">%</label></div>
+    el.innerHTML = `<input class="name" value=""><div class="row"><select class="voice"></select><select class="mode"></select><select class="lang" title="the language the words are in"></select><label class="mstr-l" title="how strongly the vocal mode is applied">Strength <input class="mstr num" type="number" min="0" max="200" step="10">%</label></div>
       <div class="row"><span class="ms m" title="mute">M</span><span class="ms s" title="solo">S</span>
       <label title="volume in dB">dB <input class="gain num" type="number" step="0.5"></label>
       <label title="move the part by octaves (semitones)">Shift <input class="tr num" type="number" step="12"></label></div>`;
@@ -249,6 +249,8 @@ function tracks() {
     el.querySelector('.name').onchange = (e) => set('rename track', 'name', e.target.value);
     vs.onchange = (e) => set('voice', 'voice', e.target.value);
     ms.onchange = (e) => set('vocal mode', 'mode', e.target.value);
+    const lg = el.querySelector('.lang'); for (const [k, v] of Object.entries(app.langs || { en: 'English' })) lg.add(new Option(v, k, false, k === (t.lang || 'en')));
+    lg.onchange = (e) => set('language', 'lang', e.target.value);
     const str = el.querySelector('.mstr'); str.value = Math.round((t.mode_strength ?? 1) * 100); el.querySelector('.mstr-l').hidden = (t.mode || 'Default') === 'Default';
     str.onchange = (e) => set('mode strength', 'mode_strength', Number(e.target.value) / 100);
     el.querySelector('.m').onclick = () => set('mute', 'mute', !t.mute);
@@ -345,7 +347,7 @@ function inspector() {
   $('i-vel').onchange = setn('vel', Number); $('i-vd').onchange = setn('vib_depth', Number); $('i-vr').onchange = setn('vib_rate', Number); $('i-vs').onchange = setn('vib_start', Number);
   if (app.syllableTrouble().has(n.id)) $('i-warn').textContent = 'This word has more syllables than notes: split it over more notes (sun- rise), or pick a shorter word.';
   if (!many) phonemeTiming(n);
-  if (!many && n.lyric && !/^[_+.]$/.test(n.lyric)) post('/phonemize', { voice: app.track().voice, words: [n.lyric.replace(/-$/, '')] }).then((r) => r.json()).then((d) => { const ph = Object.values(d.phonemes || {})[0]; if (ph && $('i-auto')) $('i-auto').textContent = `automatic: ${ph.join(' ')}`; }).catch(() => {});
+  if (!many && n.lyric && !/^[_+.]$/.test(n.lyric)) post('/phonemize', { voice: app.track().voice, lang: app.track().lang || 'en', words: [n.lyric.replace(/-$/, '')] }).then((r) => r.json()).then((d) => { const ph = Object.values(d.phonemes || {})[0]; if (ph && $('i-auto')) $('i-auto').textContent = `automatic: ${ph.join(' ')}`; }).catch(() => {});
 }
 
 // ---- project lifecycle ----
@@ -411,7 +413,7 @@ async function download(kind) {
 // ---- wiring ----
 async function init() {
   roll = new Roll($('roll'), app); lanes = new Lanes($('lanes'), app, roll);
-  try { const v = await (await fetch(`${API}/voices`)).json(); app.voices = v.voices; app.modes = v.modes; } catch { app.modes = ['Default']; }
+  try { const v = await (await fetch(`${API}/voices`)).json(); app.voices = v.voices; app.modes = v.modes; app.langs = v.langs; } catch { app.modes = ['Default']; }
   for (const [k, s] of Object.entries(LANES)) $('lane').add(new Option(s.label, k, false, k === 'energy'));
   $('lane').onchange = (e) => { lanes.lane = e.target.value; lanes.draw(); };
   const saved = store.get('singer-autosave', null);

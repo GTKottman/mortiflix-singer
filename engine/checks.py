@@ -10,7 +10,7 @@ _whisper = None
 norm = lambda w: re.sub(r"[^a-z]", '', w.lower())
 
 
-def hear(path):
+def hear(path, lang='en'):
     global _whisper
     import soundfile as sf
     from scipy.signal import resample_poly
@@ -19,7 +19,7 @@ def hear(path):
         _whisper = WhisperModel('small', device='cpu', compute_type='int8')
     y, sr = sf.read(path, dtype='float32')
     y = y.mean(1) if y.ndim > 1 else y
-    segs, _ = _whisper.transcribe(resample_poly(y, 16000, sr).astype(np.float32), language='en', beam_size=5,
+    segs, _ = _whisper.transcribe(resample_poly(y, 16000, sr).astype(np.float32), language=lang, beam_size=5,
                                   condition_on_previous_text=False, without_timestamps=True)
     return ' '.join(s.text for s in segs).strip()
 
@@ -55,7 +55,7 @@ def check_track(project, track, phrases, diction=True, match=0.65):
         if not diction or not ph.get('file'): continue
         ids = set(ph.get('note_ids', []))
         want = [w for w in words_of_track(project, track) if ids & set(w[1])]
-        heard = hear(ph['file'])
+        heard = hear(ph['file'], track.get('lang', 'en'))
         W = ''.join(norm(w) for w, _ in want); H = norm(heard)
         hit = np.zeros(len(W), bool)
         for blk in difflib.SequenceMatcher(a=W, b=H, autojunk=False).get_matching_blocks(): hit[blk.a:blk.a + blk.size] = True

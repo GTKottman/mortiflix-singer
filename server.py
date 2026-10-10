@@ -295,7 +295,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             path, q, name = self.route()
             if path == '/script': return self.send(200, SCRIPT)
-            if path == '/voices': return self.send(200, {'voices': self.store.voices(), 'modes': list(MODES)})
+            if path == '/voices':
+                from engine.song import LANGS
+                return self.send(200, {'voices': self.store.voices(), 'modes': list(MODES), 'langs': LANGS})
             if path == '/projects':
                 return self.send(200, sorted([{'name': f.stem, 'modified': f.stat().st_mtime} for f in self.store.projects_dir().glob('*.msing')], key=lambda x: -x['modified']))
             if path.startswith('/projects/'):
@@ -398,7 +400,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/phonemize':
                 req = json.loads(body)
                 v = self.store.voice(req.get('voice') or 'SPORE')
-                return self.send(200, {'phonemes': {w: phonemize(w, v.tokens) for w in req.get('words', [])}})
+                return self.send(200, {'phonemes': {w: phonemize(w, v.tokens, req.get('lang', 'en')) for w in req.get('words', [])}})
             if path.startswith('/projects/'):
                 f = self.store.project_file(path[len('/projects/'):])
                 project = json.loads(body)

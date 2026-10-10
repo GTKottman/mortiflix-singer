@@ -153,3 +153,12 @@ def test_corrector_key_mode_snaps_to_the_scale():
     _, rep = correct(y, sr, key=(0, 'major'), amount=1.0, speed=0, vibrato=False)
     after = [m for _, m in rep['after'] if m is not None]
     assert abs(np.median(after) - 60) < 0.15 or abs(np.median(after) - 62) < 0.15  # moved onto C or D
+
+
+def test_latin_words():
+    from engine.lang_la import phonemes, syllables
+    assert phonemes('excelsis') == ['eh', 'k', 'sh', 'eh', 'l', 's', 'iy', 's']
+    assert phonemes('Agnus') == ['aa', 'n', 'y', 'uw', 's'] and phonemes('qui') == ['k', 'w', 'iy']
+    assert phonemes('peccata') == ['p', 'eh', 'k', 'aa', 't', 'aa'] and phonemes('caelum')[0] == 'ch'
+    assert syllables('Kyrie') == 3 and syllables('aeterna') == 3
+    assert song.words_of([[0.0, 400.0, 60]], ['Deo'], TOKENS, 'la')[0].phonemes == ['d', 'eh', 'ao']

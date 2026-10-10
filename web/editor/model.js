@@ -46,7 +46,11 @@ export function splitLyrics(text) {
 }
 
 // syllables in a word (vowel groups, silent final e): for the red "too many syllables" warning
-export function syllables(word) {
+export function syllables(word, lang = 'en') {
+  if (lang === 'la') {        // Latin: every vowel sings, except the digraphs ae / oe / au
+    const w = word.toLowerCase().replace(/[^a-z]/g, '').replace(/ae|oe|au/g, 'a').replace(/qu/g, 'q');
+    return Math.max(1, (w.match(/[aeiouy]/g) || []).length);
+  }
   let w = word.toLowerCase().replace(/[^a-z]/g, ''); if (!w) return 0; if (w.length <= 3) return 1;
   w = w.replace(/([^aeiouy])ed$/, (m, c) => ('td'.includes(c) ? m : c)).replace(/([^aeiouy])es$/, (m, c) => ('sxzcg'.includes(c) ? m : `${c}e`)).replace(/(?:[^laeiouy]e|[aeiouy]le)$/, (m) => m.slice(0, -1)).replace(/^y/, '');
   return Math.max(1, (w.match(/[aeiouy]+/g) || []).length);
