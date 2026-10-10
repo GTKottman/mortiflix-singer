@@ -20,7 +20,9 @@ def main():
     BUILD.mkdir(parents=True, exist_ok=True)
     nltk_dir = BUILD / 'nltk_data'
     import nltk
-    for pkg in ('averaged_perceptron_tagger_eng', 'cmudict'): nltk.download(pkg, download_dir=str(nltk_dir), quiet=True)
+    # both tagger names: g2p_en asks for the old one with some nltk versions and downloads it at run time otherwise
+    for pkg in ('averaged_perceptron_tagger_eng', 'averaged_perceptron_tagger', 'cmudict'):
+        nltk.download(pkg, download_dir=str(nltk_dir), quiet=True)
     sep = ';' if os.name == 'nt' else ':'
     args = [sys.executable, '-m', 'PyInstaller.utils.cliutils.makespec', '--onefile', '--name', 'singer-service',
             '--specpath', str(BUILD),

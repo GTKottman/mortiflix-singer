@@ -157,7 +157,8 @@ class Downloads:
 
         def run():
             try:
-                tmp = Path(tempfile.mkstemp(suffix='.zip', dir=self.store.home)[1])
+                fd, name = tempfile.mkstemp(suffix='.zip', dir=self.store.home); os.close(fd)   # Windows can't delete an open file
+                tmp = Path(name)
                 with urllib.request.urlopen(info['url'], timeout=60) as r, open(tmp, 'wb') as f:
                     total = int(r.headers.get('content-length') or 0); job['total_mb'] = round(total / 1e6, 1)
                     while (chunk := r.read(1 << 20)):
