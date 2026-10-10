@@ -116,8 +116,11 @@ class Downloads:
         self.store, self.jobs = store, {}
 
     def installed(self, key):
-        d = self.store.home / 'voices' / DOWNLOADS[key]['dest']
-        return d.exists() and any(d.rglob('vocoder.yaml' if key in ('vocoder', 'bigvgan') else 'dsconfig.yaml'))
+        from engine import voices
+        dest = DOWNLOADS[key]['dest']
+        if key in ('vocoder', 'bigvgan'):        # anywhere the engine looks (your voices folder or the checkout's)
+            return any((base / dest / 'vocoder.yaml').exists() for base in voices.homes(self.store.home))
+        return key in voices.voice_dirs(self.store.home)
 
     def status(self):
         return [{'id': k, **{x: v[x] for x in ('title', 'required', 'size_mb', 'license')}, 'terms': v.get('terms'),
@@ -222,7 +225,22 @@ class Trainer:
 
     def work(self, name): return self.store.home / 'training' / name
 
-    def running(self): return self.proc is not None and self.proc.poll() is None
+    def running(self):
+        if self.proc is not None: return self.proc.poll() is None
+        return self.orphan() is not None
+
+    def orphan(self):
+        """A job started before this service (re)started: its PID file names it; it counts while that process lives."""
+        base = self.store.home / 'training'
+        for f in base.glob('*/job.pid') if base.exists() else []:
+            try:
+                pid = int(f.read_text())
+                cmd = Path(f'/proc/{pid}/cmdline').read_bytes() if Path(f'/proc/{pid}').exists() else b''
+                if b'build_dataset.py' in cmd or b'train.py' in cmd or b'train_vocoder.py' in cmd:   # its own command line only
+                    self.name = f.parent.name; return pid
+            except (OSError, ValueError):
+                continue
+        return None
 
     def has_gpu(self):
         if self.gpu is None:
@@ -272,7 +290,7 @@ class Trainer:
     def stop(self):
         import signal
         if not self.running(): return {'stopped': False}
-        os.killpg(self.proc.pid, signal.SIGTERM)     # its own process group: the job and only the job
+        os.killpg(self.proc.pid if self.proc is not None else self.orphan(), signal.SIGTERM)   # its own process group: the job only
         return {'stopped': True}
 
 

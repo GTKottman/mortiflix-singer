@@ -6,6 +6,28 @@ let timer = null;
 function row(cls, ...kids) { const d = document.createElement('div'); d.className = cls; d.append(...kids); return d; }
 function text(tag, t, cls) { const e = document.createElement(tag); e.textContent = t; if (cls) e.className = cls; return e; }
 
+// a short phrase in a voice, placed in its range (or around middle C)
+const NOTE = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+const midiOf = (n) => NOTE[n.slice(0, -1)] + 12 * (Number(n.slice(-1)) + 1);
+function hear(v) {
+  const b = text('button', 'Hear it', 'btn'), audio = document.createElement('audio'); audio.hidden = true; document.body.append(audio);
+  b.onclick = async () => {
+    b.disabled = true; b.textContent = 'Singing…';
+    const mid = v.range ? Math.round((midiOf(v.range[0]) + midiOf(v.range[1])) / 2) : 60;
+    const tune = [[0, 2, 'hel-'], [2, 2, 'lo'], [4, 1, 'this'], [5, 1, 'is'], [6, 1, 'my'], [7, 5, 'voice']];
+    const steps = [0, 2, 4, 2, 0, -1];
+    const project = { version: 1, ppq: 480, title: 'sample', tempo: [{ tick: 0, bpm: 100 }], time_sig: [4, 4],
+      tracks: [{ id: 't1', name: 'Lead', voice: v.name, notes: tune.map(([at, len, w], i) => ({ id: `n${i}`, tick: at * 240, dur: len * 240 - 20, pitch: mid + steps[i], lyric: w, vel: 64 })), lanes: {}, pitch_draw: [], params: { steps: 10 } }] };
+    try {
+      const r = await fetch('/api/singer/export', { method: 'POST', headers: { 'content-type': 'application/json', 'x-mortiflix': '1' }, body: JSON.stringify({ project, format: 'wav', bits: 16 }) });
+      if (!r.ok) throw new Error((await r.json()).error);
+      audio.src = URL.createObjectURL(await r.blob()); await audio.play();
+    } catch (e) { b.title = e.message; }
+    b.disabled = false; b.textContent = 'Hear it';
+  };
+  return b;
+}
+
 async function refresh() {
   const [dl, vs] = await Promise.all([api('/downloads').then((r) => r.json()), api('/voices').then((r) => r.json())]);
   const box = $('voices'); box.textContent = '';
@@ -24,7 +46,10 @@ async function refresh() {
     box.append(row('v-row', left, right));
   }
   const mine = vs.voices.filter((v) => !dl.some((d) => d.id === v.name));
-  for (const v of mine) box.append(row('v-row', row('v-name', text('b', v.name), text('span', 'Your voice', 'muted')), text('span', 'Installed', 'ok')));
+  for (const v of mine) box.append(row('v-row', row('v-name', text('b', v.name), text('span', v.license || 'Your voice', 'muted')), hear(v)));
+  for (const v of vs.voices.filter((x) => dl.some((d) => d.id === x.name))) {         // downloaded voices can be heard too
+    const r = [...box.children].find((el) => el.querySelector('b')?.textContent.startsWith(v.name)); r?.lastChild.prepend(hear(v), ' ');
+  }
   const busy = dl.some((d) => d.state === 'downloading' || d.state === 'unpacking');
   clearTimeout(timer); if (busy) timer = setTimeout(refresh, 1000);
 }
