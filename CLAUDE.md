@@ -51,6 +51,14 @@ Every default decision made without the owner goes in `docs/DECISIONS.md`. The d
 - Browser tests of the roll: CDP mouse input times out on a background tab; dispatch MouseEvents in the page instead
   (`singer.roll` is exposed). Playback can't start without a user gesture, so test players by their state, not sound. Editor browser tests: browser-harness `BU_NAME=mfxlappy`, own tab only.
 
+- Windows training (proven on the test VM, see memory windows-test-vm): pesq has no wheels (kept out of the kit, stubbed
+  for BigVGAN), a fresh Windows lacks the VC++ runtime (msvc-runtime + sitecustomize add_dll_directory), text defaults
+  to cp1252 (service built in UTF-8 mode, jobs get PYTHONUTF8). SSH sessions kill child processes on Windows: run long
+  VM tests as a scheduled task (/IT) and poll a log file.
+- DiffSinger's default batches OOM on a 10 GB card; train.py fits batches + accumulates (fit_memory). Checkpoints are
+  only written at validation points (val_check_interval = min(2000, steps)).
+- Release: `git tag vX.Y.Z && git push origin vX.Y.Z` -> both workflows attach to a *draft* release; the owner publishes.
+
 ## Testing
 `.venv/bin/python -m pytest -q tests` (about 8 s; trainer tests also run in `trainer/.venv`). Plugin:
 `cd plugin && cargo test`. Real training runs take hours on the GPU: ask the owner first.
