@@ -45,7 +45,7 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 | Item | | Notes |
 | --- | --- | --- |
 | Scripting API (JavaScript) | ✅ | `window.singer` + Scripts menu (bundled + `~/MortiflixSinger/scripts`) |
-| Command line, HTTP API, MCP tools | ✅ | `singer.py`, the service, `mcp/singer_mcp.py` (registered as `singer`) |
+| Command line, HTTP API, MCP tools | ✅ | `singer.py`, the service ([docs/API.md](API.md)), `mcp/singer_mcp.py` (registered as `singer`) |
 
 ## Beyond Synthesizer V
 
