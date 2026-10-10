@@ -156,6 +156,60 @@ class Downloads:
         return {'started': True}
 
 
+class Bridge:
+    """Design section 12: the project rendered by the engine, then converted into your voice by a speech-to-speech
+    command (robovox's s2s.py with SoulX-Singer SVC) using a recording of you as the reference. Configured in
+    ~/MortiflixSinger/config.json {"bridge": {"command": "...", "voice": "..."}}; found automatically when robovox is
+    checked out next to this project. One job at a time, in the background."""
+    def __init__(self, store):
+        self.store, self.job = store, None
+
+    def config(self):
+        f = self.store.home / 'config.json'
+        cfg = (json.loads(f.read_text()).get('bridge') if f.exists() else None) or {}
+        rv = HERE.parent / 'robovox'
+        if not cfg.get('command') and (rv / 's2s.py').exists() and (rv / '.venv/bin/python').exists():
+            cfg = {'command': f'{rv / ".venv/bin/python"} {rv / "s2s.py"}', 'voice': str(rv / 'voices' / ('you-better' if (rv / 'voices/you-better').exists() else 'you'))}
+        return cfg if cfg.get('command') and cfg.get('voice') else None
+
+    def status(self):
+        j = self.job
+        return {'available': self.config() is not None, 'voice': (self.config() or {}).get('voice'),
+                **({k: j[k] for k in ('state', 'error', 'url', 'started')} if j else {'state': None})}
+
+    def start(self, project, transpose):
+        import shlex, subprocess, hashlib
+        if self.job and self.job['state'] in ('rendering', 'converting'): raise ValueError('a conversion is already running')
+        cfg = self.config()
+        if not cfg: raise ValueError('no voice converter set up (robovox s2s.py)')
+        key = hashlib.sha1(json.dumps([project, transpose, cfg], sort_keys=True).encode()).hexdigest()[:16]
+        d = self.store.home / 'bridge' / key; d.mkdir(parents=True, exist_ok=True)
+        self.job = job = {'state': 'rendering', 'error': None, 'url': None, 'started': time.time()}
+
+        def run():
+            try:
+                p = expand_groups(project); results, sr = {}, 44100
+                with self.store.render_lock:
+                    for t in p['tracks']:
+                        if not t['notes']: continue
+                        v = self.store.voice(t.get('voice') or 'SPORE'); sr = v.sr
+                        results[t['id']] = render_track(v, t.get('voice') or 'SPORE', p, t, self.store.home / 'cache', 'final')
+                mix = mixdown(sr, p, results, p['tracks']).mean(1)
+                sf.write(d / 'source.wav', mix, sr, subtype='PCM_24')
+                (d / 'part.mid').write_bytes(formats.to_midi(p))
+                job['state'] = 'converting'
+                cmd = shlex.split(cfg['command']) + ['--source', str(d / 'source.wav'), '--voice', cfg['voice'], '--out', str(d),
+                                                     '--midi', str(d / 'part.mid'), '--transpose', str(int(transpose))]
+                with open(d / 'log.txt', 'w') as log:
+                    r = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT)
+                if r.returncode or not (d / 'vocal.wav').exists(): raise RuntimeError(f'the converter failed: see {d / "log.txt"}')
+                job.update(state='done', url=f'/api/singer/bridge/{key}.wav')
+            except Exception as e:
+                job.update(state='failed', error=str(e))
+        threading.Thread(target=run, daemon=True).start()
+        return {'started': True}
+
+
 MIN_MINUTES = 30        # below this a voice is too thin to be worth hours of training (DiffSinger asks for about an hour)
 TRAIN_PY = HERE / 'trainer' / '.venv' / 'bin' / 'python'
 
@@ -222,6 +276,7 @@ class Handler(BaseHTTPRequestHandler):
     store: Store = None
     trainer: Trainer = None
     downloads: Downloads = None
+    bridge: Bridge = None
 
     def log_message(self, *a): pass
 
@@ -255,6 +310,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/booth/progress': return self.send(200, self.store.progress(name))
             if path == '/train/status': return self.send(200, self.trainer.status(name))
             if path == '/downloads': return self.send(200, self.downloads.status())
+            if path == '/bridge': return self.send(200, self.bridge.status())
+            if (m := re.match(r'^/bridge/([0-9a-f]{16})\.wav$', path)):
+                f = self.store.home / 'bridge' / m.group(1) / 'vocal.wav'
+                return self.send(200, f.read_bytes(), 'audio/wav') if f.exists() else self.send(404, {'error': 'not converted'})
             if (m := re.match(r'^/backing/([0-9a-f]{40}\.(wav|mp3|flac|ogg))$', path)):
                 f = self.store.home / 'backing' / m.group(1)
                 types = {'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'flac': 'audio/flac', 'ogg': 'audio/ogg'}
@@ -355,6 +414,9 @@ class Handler(BaseHTTPRequestHandler):
                 try: dur = sf.info(f).duration
                 except Exception: dur = None
                 return self.send(200, {'file': f.name, 'name': q.get('filename', f.name), 'duration': dur})
+            if path == '/bridge':
+                req = json.loads(body)
+                return self.send(200, self.bridge.start(req['project'], req.get('transpose', 0)))
             if path == '/tune/upload':                 # the pitch corrector's inputs: a vocal (stored as WAV) or a MIDI part
                 import hashlib
                 d = self.store.home / 'tune'; d.mkdir(parents=True, exist_ok=True)
@@ -483,17 +545,17 @@ def main():
     a = ap.parse_args()
     home = Path(a.home); home.mkdir(parents=True, exist_ok=True)
     if a.stdio:
-        Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)
+        Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store); Handler.bridge = Bridge(Handler.store)
         return serve_stdio()
     if a.port or Server is None:
         if not a.port: raise SystemExit('this system has no socket files: use --stdio, or --port N for a loopback port')
-        Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)
+        Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store); Handler.bridge = Bridge(Handler.store)
         srv = TCPServer(('127.0.0.1', a.port), Handler)
         print(f'singer service on 127.0.0.1:{a.port}', flush=True)
         return srv.serve_forever()
     sock = Path(a.socket or home / 'singer.sock')
     if sock.exists(): sock.unlink()
-    Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)
+    Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store); Handler.bridge = Bridge(Handler.store)
     srv = Server(str(sock), Handler)
     os.chmod(sock, 0o600)
     print(f'singer service on {sock}', flush=True)

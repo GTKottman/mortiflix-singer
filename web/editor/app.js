@@ -420,6 +420,22 @@ async function init() {
   changed('select'); roll.centerOn(app.project().tracks.flatMap((t) => t.notes)); render('preview');
 
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
+  // the bridge (design 12): offered when a voice converter is set up
+  fetch(`${API}/bridge`).then((r) => r.json()).then((b) => { if (b.available) { $('bridge-opt').hidden = false; $('bridge-voice').textContent = (b.voice || '').split('/').pop(); } }).catch(() => {});
+  $('bridge-close').onclick = () => $('bridge-dlg').close();
+  $('bridge-go').onclick = async () => {
+    $('bridge-go').disabled = true; $('bridge-out').hidden = true; $('bridge-state').textContent = 'Rendering…';
+    const r = await post('/bridge', { project: app.project(), transpose: Number($('bridge-tr').value) || 0 });
+    if (!r.ok) { $('bridge-state').textContent = (await r.json()).error; $('bridge-go').disabled = false; return; }
+    const poll = async () => {
+      const b = await (await fetch(`${API}/bridge`)).json();
+      if (b.state === 'done') { $('bridge-state').textContent = 'Done'; $('bridge-audio').src = `${b.url}?t=${Date.now()}`; $('bridge-dl').href = b.url; $('bridge-out').hidden = false; $('bridge-go').disabled = false; return; }
+      if (b.state === 'failed') { $('bridge-state').textContent = `Failed: ${b.error}`; $('bridge-go').disabled = false; return; }
+      $('bridge-state').textContent = b.state === 'converting' ? `Converting into your voice… ${Math.round((Date.now() / 1000 - b.started))} s` : 'Rendering…';
+      setTimeout(poll, 2000);
+    };
+    poll();
+  };
   $('midi').onclick = toggleMidi; $('keys-close').onclick = () => $('keys-dlg').close(); $('group-done').onclick = leaveGroup;
   fetch(`${API}/scripts`).then((r) => r.json()).then((list) => { for (const sc of list) $('scripts').add(new Option(sc.kind === 'yours' ? `${sc.title} (yours)` : sc.title, sc.file)); }).catch(() => {});
   $('scripts').onchange = async (e) => {
@@ -436,7 +452,7 @@ async function init() {
     const d = await r.json(); if (!r.ok) { status(`Import failed: ${d.error}`); return; }
     open(d); status(`Imported ${f.name}: ${d.tracks.reduce((a, t) => a + t.notes.length, 0)} notes`); e.target.value = '';
   };
-  $('export').onchange = (e) => { const k = e.target.value; e.target.value = ''; if (k) download(k); };
+  $('export').onchange = (e) => { const k = e.target.value; e.target.value = ''; if (k === 'bridge') $('bridge-dlg').showModal(); else if (k) download(k); };
   $('title').onchange = (e) => app.edit('title', (p) => (p.title = e.target.value));
   $('key-root').add(new Option('none', '')); ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].forEach((n, i) => $('key-root').add(new Option(n, String(i))));
   for (const sc of Object.keys(SCALES)) $('key-scale').add(new Option(sc, sc));

@@ -26,7 +26,7 @@
   <button id="open" class="btn">Open</button>
   <button id="save" class="btn" title="Ctrl+S">Save</button>
   <label class="btn" title="MIDI, MusicXML, UTAU .ust, Synthesizer V .svp, Vocaloid .vsqx, .msing">Import<input id="import" type="file" hidden accept=".mid,.midi,.musicxml,.xml,.ust,.svp,.vsqx,.msing"></label>
-  <select id="export" class="btn" aria-label="Export"><option value="">Export…</option><option value="wav">WAV (vocals)</option><option value="wav-full">WAV (vocals + backing)</option><option value="wav-track">WAV (this track)</option><option value="mid">MIDI with lyrics</option><option value="musicxml">MusicXML</option><option value="msing">Project (.msing)</option></select>
+  <select id="export" class="btn" aria-label="Export"><option value="">Export…</option><option value="wav">WAV (vocals)</option><option value="wav-full">WAV (vocals + backing)</option><option value="wav-track">WAV (this track)</option><option value="mid">MIDI with lyrics</option><option value="musicxml">MusicXML</option><option value="msing">Project (.msing)</option><option value="bridge" id="bridge-opt" hidden>WAV in my voice (bridge)…</option></select>
 </header>
 
 <div id="group-bar" class="group-bar" hidden>Editing group <b id="group-name"></b>: every copy of it follows. Times start at the group's first bar.
@@ -79,6 +79,13 @@
   <h2 id="inbox-head" hidden>From your DAW</h2>
   <div id="inbox-list"></div>
   <p><button id="new" class="btn">New project</button> <button id="open-close" class="btn">Close</button></p>
+</dialog>
+<dialog id="bridge-dlg" class="dlg">
+  <h2>Sing it in my voice</h2>
+  <p class="muted">The song is rendered, then a voice converter turns it into you, using your recording <b id="bridge-voice"></b> as the reference. It takes a few minutes on the graphics card. For demos and writing: the singing comes from SPORE (non-commercial).</p>
+  <p><label>Move by <input id="bridge-tr" type="number" value="-12" step="12" class="num"> semitones</label> <span class="muted">(-12 = an octave down, into a low voice)</span></p>
+  <p><button id="bridge-go" class="btn primary">Convert</button> <button id="bridge-close" class="btn">Close</button> <span id="bridge-state" class="muted"></span></p>
+  <p id="bridge-out" hidden><audio id="bridge-audio" controls></audio> <a id="bridge-dl" class="btn" download="in my voice.wav">Download</a></p>
 </dialog>
 <dialog id="keys-dlg" class="dlg">
   <h2>Keyboard</h2>
