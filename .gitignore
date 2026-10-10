@@ -15,3 +15,4 @@ app/src-tauri/gen/
 trainer/.venv/
 plugin/target/
 plugin/dist/
+plugin/au/build/

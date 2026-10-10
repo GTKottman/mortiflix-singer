@@ -38,6 +38,16 @@ jobs:
       - name: Bundle (universal)
         if: ${{ matrix.universal }}
         run: cargo xtask bundle-universal mortiflix_singer_bridge --release
+      - name: AU (clap-wrapper) and Apple's validator
+        if: ${{ matrix.universal }}
+        run: |
+          cmake -S au -B au/build -DCMAKE_BUILD_TYPE=Release -DCLAP_BUNDLE="$PWD/target/bundled/Mortiflix Singer.clap"
+          cmake --build au/build --config Release
+          comp=$(find au/build -name "*.component" -maxdepth 4 | head -1); echo "built $comp"
+          mkdir -p ~/Library/Audio/Plug-Ins/Components && cp -R "$comp" ~/Library/Audio/Plug-Ins/Components/
+          cp -R "$comp" target/bundled/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          auval -v aumu MfSg Mrtf
       - uses: actions/upload-artifact@v4
         with:
           name: mortiflix-singer-plugin-${{ matrix.os }}
