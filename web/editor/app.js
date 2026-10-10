@@ -511,7 +511,11 @@ async function init() {
   try { const v = await (await fetch(`${API}/voices`)).json(); app.voices = v.voices; app.modes = v.modes; app.langs = v.langs; } catch { app.modes = ['Default']; }
   for (const [k, s] of Object.entries(LANES)) $('lane').add(new Option(s.label, k, false, k === 'energy'));
   $('lane').onchange = (e) => { lanes.lane = e.target.value; lanes.draw(); };
-  const saved = store.get('singer-autosave', null);
+  let saved = store.get('singer-autosave', null);
+  const want = new URLSearchParams(location.search).get('project');      // editor.html?project=Name opens a saved project
+  if (want && saved?.name !== want) {
+    try { const r = await fetch(`${API}/projects/${encodeURIComponent(want)}`); if (r.ok) saved = { name: want, project: await r.json() }; } catch {}
+  }
   app.history = new History(saved?.project || demo(), changed);
   app.name = saved?.name || null; app.trackId = app.project().tracks[0].id;
   changed('select'); roll.centerOn(app.project().tracks.flatMap((t) => t.notes)); render('preview');
@@ -555,6 +559,7 @@ async function init() {
   for (const sc of Object.keys(SCALES)) $('key-scale').add(new Option(sc, sc));
   const setKey = () => app.edit('key', (p) => { const r = $('key-root').value; if (r === '') delete p.key; else p.key = { root: Number(r), scale: $('key-scale').value }; });
   $('key-root').onchange = setKey; $('key-scale').onchange = setKey;
+  { const k = app.project().key; $('key-root').value = k ? String(k.root) : ''; $('key-scale').value = k?.scale || 'major'; }   // options exist now
   $('bpm').onchange = (e) => app.edit('tempo', (p) => (p.tempo[0].bpm = Math.max(20, Math.min(300, Number(e.target.value) || 120))));
   $('ts').onchange = (e) => { const m = /^(\d+)\/(\d+)$/.exec(e.target.value.trim()); if (m) app.edit('time signature', (p) => (p.time_sig = [Number(m[1]), Number(m[2])])); };
   $('guide').onchange = (e) => (app.guide = e.target.checked);

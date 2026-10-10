@@ -54,3 +54,13 @@ async function refresh() {
   clearTimeout(timer); if (busy) timer = setTimeout(refresh, 1000);
 }
 refresh();
+
+// saved projects, newest first: one click opens them in the editor
+fetch('/api/singer/projects').then((r) => r.json()).then((list) => {
+  const box = $('projects'); box.textContent = '';
+  if (!list.length) { box.append(text('p', 'None yet: the Editor saves them here.', 'muted')); return; }
+  for (const p of list.slice(0, 12)) {
+    const a = text('a', p.name); a.href = `editor.html?project=${encodeURIComponent(p.name)}`;
+    box.append(row('v-row', row('v-name', a), text('span', new Date(p.modified * 1000).toLocaleString(), 'muted')));
+  }
+}).catch(() => {});
