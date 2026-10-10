@@ -23,7 +23,11 @@ const app = {
   changed(what) { draw(); inspector(); },
   snapTicks() { const v = Number($('snap').value); return v === 0 ? 0 : v === 3 ? PPQ / 3 : PPQ / v; },
   seek(tick) { this.playTick = tick; if (player.playing) player.play(tick); draw(); },
-  onPlayhead(tick) { this.playTick = tick; draw(); },
+  onPlayhead(tick) {
+    const lp = this.project().loop;                   // looping: past the loop's end, jump back to its start
+    if (lp?.on && tick >= lp.end && player.playing) { this.seek(lp.start); return; }
+    this.playTick = tick; draw();
+  },
   previewPitch(m) { player.preview(m + (this.track()?.transpose || 0)); },
   nextLyric() { return 'la'; },
   voiceRange() { const v = this.voices.find((x) => x.name === this.track()?.voice); return v?.range ? [midiOf(v.range[0]) - (this.track().transpose || 0), midiOf(v.range[1]) - (this.track().transpose || 0)] : null; },
@@ -269,6 +273,30 @@ function tracks() {
     box.append(el);
   }
 }
+function markersPane() {
+  const p = app.project(), box = $('markers'), bar = ticksPerBar(p); box.textContent = '';
+  for (const m of [...(p.markers || [])].sort((a, b) => a.tick - b.tick)) {
+    const row = document.createElement('div'); row.className = 'row';
+    const go = document.createElement('button'); go.className = 'btn tiny'; go.textContent = `${+(m.tick / bar + 1).toFixed(2)}`; go.title = 'jump here';
+    go.onclick = () => { app.seek(m.tick); roll.scrollTo(Math.max(0, m.tick - p.ppq)); };
+    const nm = document.createElement('input'); nm.value = m.name; nm.className = 'marker-name';
+    nm.onchange = () => app.edit('rename marker', (q) => { const x = q.markers.find((y) => y.id === m.id); if (x) x.name = nm.value || x.name; });
+    const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = '×';
+    rm.onclick = () => app.edit('remove marker', (q) => { q.markers = q.markers.filter((y) => y.id !== m.id); });
+    row.append(go, nm, rm); box.append(row);
+  }
+  const add = document.createElement('button'); add.className = 'btn tiny'; add.textContent = 'Add at the playhead (;)';
+  add.onclick = addMarker; box.append(add);
+  if (p.loop) {
+    const l = document.createElement('div'); l.className = 'row';
+    const tg = document.createElement('button'); tg.className = 'btn tiny'; tg.textContent = p.loop.on ? 'Loop on (L)' : 'Loop off (L)';
+    tg.onclick = toggleLoop; const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = 'Clear loop';
+    rm.onclick = () => app.edit('clear loop', (q) => { delete q.loop; });
+    l.append(tg, rm); box.append(l);
+  } else { const hint = document.createElement('p'); hint.className = 'muted'; hint.textContent = 'Shift-drag on the ruler to loop a part.'; box.append(hint); }
+}
+function addMarker() { const p = app.project(), tick = Math.round(app.playTick); app.edit('add marker', (q) => { q.markers = [...(q.markers || []), { id: uid(), tick, name: `Marker ${(p.markers || []).length + 1}` }]; }); }
+function toggleLoop() { if (app.project().loop) app.edit('loop on/off', (q) => { q.loop.on = !q.loop.on; }); }
 function tempoPane() {
   const p = app.project(), box = $('tempo'), bar = ticksPerBar(p); box.textContent = '';
   const marks = [...p.tempo].sort((a, b) => a.tick - b.tick).filter((t) => t.tick > 0);
@@ -407,8 +435,8 @@ function changed(label) {
   if (!app.project().tracks.some((t) => t.id === app.trackId)) app.trackId = app.project().tracks[0].id;
   $('title').value = app.project().title || ''; $('bpm').value = app.project().tempo[0].bpm; $('ts').value = app.project().time_sig.join('/');
   const k = app.project().key; $('key-root').value = k ? String(k.root) : ''; $('key-scale').value = k?.scale || 'major';
-  tracks(); tempoPane(); backing(); inspector(); draw();
-  if (!['select'].includes(label) && !/backing/.test(label || '')) scheduleRender();
+  tracks(); tempoPane(); markersPane(); backing(); inspector(); draw();
+  if (!['select'].includes(label) && !/backing|marker|loop/.test(label || '')) scheduleRender();
 }
 function open(project, name = null) {
   app.name = name; app.history.replace(project, 'open'); app.trackId = project.tracks[0]?.id; app.sel.clear(); app.renders = {};
@@ -562,7 +590,7 @@ function mergeSel() {
   app.sel = new Set([keep]); changed('select');
 }
 function keys(e) {
-  if (e.target.closest('input,select,textarea,dialog')) { if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } return; }
+  if (e.target.closest?.('input,select,textarea,dialog')) { if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } return; }
   const mod = e.ctrlKey || e.metaKey, t = app.track();
   if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
   else if (mod && e.key === 'z') { e.preventDefault(); e.shiftKey ? app.history.redo() : app.history.undo(); }
@@ -584,6 +612,8 @@ function keys(e) {
   else if (mod && e.key === 'd') { e.preventDefault(); duplicateSel(); }
   else if (e.key === '/' && !mod) splitSel();
   else if (e.key === '?') $('keys-dlg').showModal();
+  else if ((e.key === 'l' || e.key === 'L') && !mod) toggleLoop();
+  else if (e.key === ';' && !mod) addMarker();
   else if ((e.key === 'm' || e.key === 'M') && !mod) mergeSel();
   else if (e.key === 'Delete' || e.key === 'Backspace') { app.edit('delete notes', (p) => { const x = app.trackOf(p); x.notes = x.notes.filter((n) => !app.sel.has(n.id)); }); app.sel.clear(); }
   else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1); app.edit('transpose notes', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id)) n.pitch += d; }); }

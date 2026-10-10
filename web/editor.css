@@ -91,3 +91,4 @@ select.btn { width: auto; display: inline-block; }
 .mode-name { width: 130px; }
 .ed-inspector .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
 .ed-inspector .mode-name { flex: 1; min-width: 0; width: auto; }
+.marker-name { width: 90px; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 5px; font-size: 12px; padding: 2px 4px; }

@@ -60,6 +60,7 @@ export class Roll {
     if (e.button !== 0) return;
     const { x, y } = this.pos(e), app = this.app, tool = app.tool;
     this.cv.focus?.();
+    if (y < RULER && e.shiftKey) { const t0 = this.snap(Math.max(0, this.T(x))); this.drag = { kind: 'loop', a: t0, b: t0 }; return; }   // shift-drag: loop region
     if (y < RULER) { app.seek(Math.max(0, this.T(x))); this.drag = { kind: 'seek' }; return; }
     if (x < KEYW) { app.previewPitch(this.P(y)); return; }
     const n = this.noteAt(e);
@@ -98,6 +99,7 @@ export class Roll {
     const d = this.drag; if (!d) { const n = this.cv.matches(':hover') ? this.noteAt(e) : null; const { x } = this.pos(e); this.cv.style.cursor = n && this.X(n.tick + n.dur) - x < 7 ? 'ew-resize' : this.app.tool === 'draw' ? 'crosshair' : this.app.tool === 'pitch' ? 'crosshair' : 'default'; return; }
     const { x, y } = this.pos(e), app = this.app;
     if (d.kind === 'seek') { app.seek(Math.max(0, this.T(x))); return; }
+    if (d.kind === 'loop') { d.b = this.snap(Math.max(0, this.T(x))); this.draw(); return; }
     if (d.kind === 'box') { d.b = { x, y }; this.draw(); return; }
     if (d.kind === 'pitch') { d.pts.push([this.T(x), this.pitchAtY(y)]); this.draw(); return; }
     const dt = this.snap((x - d.start.x) / this.pxPerTick), dp = Math.round(-(y - d.start.y) / this.rowH);
@@ -119,6 +121,11 @@ export class Roll {
   up(e) {
     const d = this.drag; this.drag = null; if (!d) return;
     const app = this.app;
+    if (d.kind === 'loop') {
+      const [a, b] = [Math.min(d.a, d.b), Math.max(d.a, d.b)];
+      if (b - a >= 30) app.edit('loop region', (p) => { p.loop = { start: a, end: b, on: true }; });
+      return;
+    }
     if (d.kind === 'ref') {
       if (!d.moved) return;
       const r = (app.track().refs || []).find((q) => q.id === d.ref); if (!r) return;
@@ -187,6 +194,11 @@ export class Roll {
     // ruler
     g.fillStyle = c('--bg'); g.fillRect(0, 0, W, RULER); g.fillStyle = c('--muted'); g.font = '11px Sora, sans-serif';
     for (let k = Math.floor(this.x0 / bar) * bar; k <= t1; k += bar) { const x = this.X(k); if (x >= KEYW) g.fillText(String(k / bar + 1), x + 3, 16); }
+    // loop region (shift-drag on the ruler; L turns it on and off) and markers
+    const lp = this.drag?.kind === 'loop' ? { start: Math.min(this.drag.a, this.drag.b), end: Math.max(this.drag.a, this.drag.b), on: true } : p.loop;
+    if (lp) { const x1 = Math.max(KEYW, this.X(lp.start)), x2 = this.X(lp.end); if (x2 > KEYW) { g.fillStyle = c('--accent'); g.globalAlpha = lp.on ? 0.28 : 0.1; g.fillRect(x1, 0, x2 - x1, RULER); g.globalAlpha = lp.on ? 0.05 : 0.02; g.fillRect(x1, RULER, x2 - x1, H); g.globalAlpha = 1; } }
+    g.fillStyle = c('--ink'); for (const m of p.markers || []) { const x = this.X(m.tick); if (x >= KEYW && x <= W) { g.fillRect(x, 0, 1, RULER); g.fillText(m.name, x + 3, 9); } }
+    g.fillStyle = c('--muted');
     // tempo changes after the first: their BPM on the ruler, in the accent colour
     g.fillStyle = c('--accent'); for (const tp of p.tempo) { if (!tp.tick) continue; const x = this.X(tp.tick); if (x >= KEYW && x <= W) { g.fillRect(x, 0, 1.5, RULER); g.fillText(`${+tp.bpm.toFixed(2)}`, x + 4, 24); } }
     g.strokeStyle = c('--line'); g.beginPath(); g.moveTo(0, RULER); g.lineTo(W, RULER); g.stroke();
