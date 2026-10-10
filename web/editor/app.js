@@ -269,7 +269,8 @@ function tracks() {
     el.innerHTML = `<input class="name" value=""><div class="row"><select class="voice"></select><select class="mode"></select><select class="lang" title="the language the words are in"></select><label class="mstr-l" title="how strongly the vocal mode is applied">Strength <input class="mstr num" type="number" min="0" max="200" step="10">%</label></div>
       <div class="row"><span class="ms m" title="mute">M</span><span class="ms s" title="solo">S</span>
       <label title="volume in dB">dB <input class="gain num" type="number" step="0.5"></label>
-      <label title="move the part by octaves (semitones)">Shift <input class="tr num" type="number" step="12"></label></div>`;
+      <label title="move the part by octaves (semitones)">Shift <input class="tr num" type="number" step="12"></label>
+      <label title="left -100 .. right 100">Pan <input class="pan num" type="number" min="-100" max="100" step="10"></label></div>`;
     el.querySelector('.name').value = t.name;
     const vs = el.querySelector('.voice'); for (const v of app.voices.length ? app.voices : [{ name: t.voice }]) vs.add(new Option(v.name, v.name, false, v.name === t.voice));
     const ms = el.querySelector('.mode'); for (const m of [...app.modes, ...Object.keys(p.modes || {})]) ms.add(new Option(m, m, false, m === t.mode));
@@ -288,6 +289,8 @@ function tracks() {
     el.querySelector('.s').onclick = () => set('solo', 'solo', !t.solo);
     el.querySelector('.gain').onchange = (e) => set('volume', 'gain_db', Number(e.target.value));
     el.querySelector('.tr').onchange = (e) => set('octave', 'transpose', Number(e.target.value));
+    el.querySelector('.pan').value = Math.round((t.pan || 0) * 100);
+    el.querySelector('.pan').onchange = (e) => set('pan', 'pan', Math.max(-1, Math.min(1, Number(e.target.value) / 100)));
     box.append(el);
   }
 }
@@ -307,7 +310,7 @@ function markersPane() {
   add.onclick = addMarker; box.append(add);
   if (p.loop) {
     const l = document.createElement('div'); l.className = 'row';
-    const tg = document.createElement('button'); tg.className = 'btn tiny'; tg.textContent = p.loop.on ? 'Loop on (L)' : 'Loop off (L)';
+    const tg = document.createElement('button'); tg.className = 'btn tiny'; tg.textContent = p.loop.on ? 'Loop on (Shift+L)' : 'Loop off (Shift+L)';
     tg.onclick = toggleLoop; const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = 'Clear loop';
     rm.onclick = () => app.edit('clear loop', (q) => { delete q.loop; });
     l.append(tg, rm); box.append(l);
@@ -685,6 +688,11 @@ function keys(e) {
   else if (mod && e.key === 'd') { e.preventDefault(); duplicateSel(); }
   else if (e.key === '/' && !mod) splitSel();
   else if (e.key === '?') $('keys-dlg').showModal();
+  else if ((e.key === 'l') && !mod) { e.preventDefault(); $('lyrics').focus(); }
+  else if (e.key === 'Enter' && !mod) { e.preventDefault(); render('final'); }
+  else if (/^[1-6]$/.test(e.key) && !mod) {                // vocal modes by number: 1 Default, 2 Soft, 3 Chest, 4 Belt, 5 Whisper, 6 Robot
+    const m = app.modes[Number(e.key) - 1]; if (m) app.edit('vocal mode', (p) => { app.trackOf(p).mode = m; });
+  }
   else if ((e.key === 'l' || e.key === 'L') && !mod) toggleLoop();
   else if (e.key === ';' && !mod) addMarker();
   else if ((e.key === 'm' || e.key === 'M') && !mod) mergeSel();

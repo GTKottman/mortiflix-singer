@@ -272,6 +272,23 @@ export class Roll {
     }
     // phonemes and the rendered pitch from the last render
     const r = this.app.renders[t.id] || [];
+    // render state: rendered phrases get a band under the ruler; notes still waiting for a render are hatched
+    g.fillStyle = accent; g.globalAlpha = 0.6;
+    for (const ph of r) { const x1 = Math.max(KEYW, this.X(tm.toTick(ph.start_ms))), x2 = this.X(tm.toTick(ph.end_ms)); if (x2 > KEYW) g.fillRect(x1, RULER - 3, x2 - x1, 3); }
+    g.globalAlpha = 1;
+    if (!this.app.groupEdit) {
+      const done = (n) => { const a = tm.toMs(n.tick); return r.some((ph) => a >= ph.start_ms && a <= ph.end_ms && (ph.note_ids || []).includes(n.id)); };
+      g.strokeStyle = ink; g.globalAlpha = 0.35; g.lineWidth = 1;
+      for (const n of t.notes) {
+        if (done(n) || (n.lyric || '') === '.') continue;
+        const x = this.X(n.tick), y = this.Y(n.pitch), w = Math.max(3, n.dur * this.pxPerTick);
+        if (x > W || x + w < KEYW) continue;
+        g.save(); g.beginPath(); g.rect(x, y + 1, w, this.rowH - 2); g.clip(); g.beginPath();
+        for (let k = x - this.rowH; k < x + w; k += 6) { g.moveTo(k, y + this.rowH); g.lineTo(k + this.rowH, y); }
+        g.stroke(); g.restore();
+      }
+      g.globalAlpha = 1;
+    }
     g.font = '10px Sora, sans-serif';
     const showPhones = this.pxPerTick > 0.2 && this.rowH >= 14;      // phonemes only when there is room to read them
     const allNotes = this.app.groupEdit ? t.notes : trackNotes(p, t);  // group copies' phonemes sit under their notes too
