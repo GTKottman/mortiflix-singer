@@ -80,3 +80,6 @@ select.btn { width: auto; display: inline-block; }
 #midi.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .group-bar { padding: 6px 14px; border-bottom: 1px solid var(--accent); color: var(--ink); font-size: 13px; display: flex; gap: 10px; align-items: center; }
 .group-bar[hidden] { display: none; }
+.keys { border-collapse: collapse; font-size: 13px; }
+.keys td { padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
+.keys td:first-child { color: var(--ink); font-family: ui-monospace, monospace; white-space: nowrap; }

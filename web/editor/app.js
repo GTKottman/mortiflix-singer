@@ -420,7 +420,7 @@ async function init() {
   changed('select'); roll.centerOn(app.project().tracks.flatMap((t) => t.notes)); render('preview');
 
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
-  $('midi').onclick = toggleMidi; $('group-done').onclick = leaveGroup;
+  $('midi').onclick = toggleMidi; $('keys-close').onclick = () => $('keys-dlg').close(); $('group-done').onclick = leaveGroup;
   fetch(`${API}/scripts`).then((r) => r.json()).then((list) => { for (const sc of list) $('scripts').add(new Option(sc.kind === 'yours' ? `${sc.title} (yours)` : sc.title, sc.file)); }).catch(() => {});
   $('scripts').onchange = async (e) => {
     const f = e.target.value; e.target.value = ''; if (!f) return;
@@ -462,6 +462,35 @@ function applyLyrics(text) {
   status(words.length > ids.length ? `${words.length - ids.length} word(s) had no note left` : `${ids.length} notes got their words`);
 }
 let clipboard = null;
+// duplicate: a copy of the selection placed right after it (snapped to the bar when the selection is whole bars)
+function duplicateSel() {
+  const sel = app.track().notes.filter((n) => app.sel.has(n.id)); if (!sel.length) return;
+  const lo = Math.min(...sel.map((n) => n.tick)), hi = Math.max(...sel.map((n) => n.tick + n.dur)), bar = ticksPerBar(app.project());
+  const span = lo % bar === 0 && (hi - lo) % bar === 0 ? hi - lo : Math.ceil((hi - lo) / (app.snapTicks() || 1)) * (app.snapTicks() || 1);
+  const copies = sel.map((n) => ({ ...n, id: uid(), tick: n.tick + span }));
+  app.edit('duplicate', (p) => app.trackOf(p).notes.push(...copies)); app.sel = new Set(copies.map((n) => n.id)); changed('select');
+}
+// split: each selected note in two at the playhead (or in half); the second half holds the vowel ("_")
+function splitSel() {
+  const sel = app.track().notes.filter((n) => app.sel.has(n.id)); if (!sel.length) return;
+  const made = [];
+  app.edit('split notes', (p) => {
+    const tr = app.trackOf(p);
+    for (const n of tr.notes.filter((m) => app.sel.has(m.id))) {
+      const at = app.playTick > n.tick + 10 && app.playTick < n.tick + n.dur - 10 ? Math.round(app.playTick) : n.tick + Math.round(n.dur / 2);
+      const second = { ...n, id: uid(), tick: at, dur: n.tick + n.dur - at, lyric: '_', ph_scale: null }; n.dur = at - n.tick;
+      tr.notes.push(second); made.push(second.id);
+    }
+  });
+  app.sel = new Set([...app.sel, ...made]); changed('select'); status(`Split ${sel.length} note${sel.length > 1 ? 's' : ''}: the new halves hold the vowel (_)`);
+}
+// merge: the selected notes become one, from the first note's start to the last one's end, with the first's word and pitch
+function mergeSel() {
+  const sel = app.track().notes.filter((n) => app.sel.has(n.id)).sort((a, b) => a.tick - b.tick); if (sel.length < 2) return;
+  const keep = sel[0].id, end = Math.max(...sel.map((n) => n.tick + n.dur));
+  app.edit('merge notes', (p) => { const tr = app.trackOf(p); const k = tr.notes.find((n) => n.id === keep); k.dur = end - k.tick; tr.notes = tr.notes.filter((n) => n.id === keep || !app.sel.has(n.id)); });
+  app.sel = new Set([keep]); changed('select');
+}
 function keys(e) {
   if (e.target.closest('input,select,textarea,dialog')) { if (e.key === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } return; }
   const mod = e.ctrlKey || e.metaKey, t = app.track();
@@ -480,6 +509,11 @@ function keys(e) {
     const lo = Math.min(...clipboard.map((n) => n.tick)), at = Math.round(app.playTick), copies = clipboard.map((n) => ({ ...n, id: uid(), tick: n.tick - lo + at }));
     app.edit('paste', (p) => app.trackOf(p).notes.push(...copies)); app.sel = new Set(copies.map((n) => n.id)); changed('select');
   }
+  else if (mod && e.key === 'x') { clipboard = t.notes.filter((n) => app.sel.has(n.id)).map((n) => ({ ...n })); app.edit('cut', (p) => { const x = app.trackOf(p); x.notes = x.notes.filter((n) => !app.sel.has(n.id)); }); app.sel.clear(); }
+  else if (mod && e.key === 'd') { e.preventDefault(); duplicateSel(); }
+  else if (e.key === '/' && !mod) splitSel();
+  else if (e.key === '?') $('keys-dlg').showModal();
+  else if ((e.key === 'm' || e.key === 'M') && !mod) mergeSel();
   else if (e.key === 'Delete' || e.key === 'Backspace') { app.edit('delete notes', (p) => { const x = app.trackOf(p); x.notes = x.notes.filter((n) => !app.sel.has(n.id)); }); app.sel.clear(); }
   else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1); app.edit('transpose notes', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id)) n.pitch += d; }); }
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const d = (e.key === 'ArrowRight' ? 1 : -1) * (app.snapTicks() || PPQ / 4); app.edit('nudge notes', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id)) n.tick = Math.max(0, n.tick + d); }); }
@@ -499,7 +533,7 @@ function demo() {
 }
 // The scripting API (Synthesizer V has one; so do we): window.singer in the browser console or a script.
 window.singer = {
-  app, render, save, open, applyLyrics, togglePlay, check, retake, makeGroup, enterGroup, leaveGroup, midiNote: (pitch, vel = 90) => stepNote(pitch, app.snapTicks() || PPQ / 2, vel),
+  app, render, save, open, applyLyrics, togglePlay, check, retake, makeGroup, duplicateSel, splitSel, mergeSel, enterGroup, leaveGroup, midiNote: (pitch, vel = 90) => stepNote(pitch, app.snapTicks() || PPQ / 2, vel),
   project: () => app.project(), track: () => app.track(),
   edit: (label, fn) => app.edit(label, fn),
   select: (ids) => { app.sel = new Set(ids); app.changed('select'); },
