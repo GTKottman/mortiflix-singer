@@ -26,7 +26,18 @@ Every default decision made without the owner goes in `docs/DECISIONS.md`. The d
   service (`packaging/build_service.py`, PyInstaller). Built in CI (`.github/workflows/desktop.yml`).
 - `plugin/`: nih-plug VST3/CLAP bridge (plays the mix file at the host's beat position; MIDI capture -> inbox).
   `cargo xtask bundle mortiflix_singer_bridge --release`; Windows: `./build-windows.sh`.
-- `mcp/singer_mcp.py`: stdio MCP (registered as `singer`): sing, import_file, set_lyrics, set_track, render, check...
+- `mcp/singer_mcp.py`: stdio MCP (registered as `singer`): sing, import_file, set_lyrics, set_track, render, check,
+  export, tune, bridge, training.
+- More engine pieces: `engine/correct.py` (WORLD pitch corrector, the Tune page; never moves octaves),
+  `engine/lang_la.py` / `engine/lang_rules.py` (Latin, Spanish, Italian by rule; track `lang`), `engine/voices.py`
+  (voice/vocoder lookup shared by service, CLI, MCP), `expand_groups` in project.py (note groups -> notes before
+  render/check/export), tone takes (`tone_takes`, same pitch curve), per-note scoop/overshoot, `ph_scale`.
+- Service extras: `/tune*`, `/bridge` (robovox s2s.py SoulX SVC into the owner's voice), `/backing`, `/inbox`
+  (plugin MIDI capture), `/scripts` (bundled `scripts/*.js` + `~/MortiflixSinger/scripts`), `/train/kit`.
+- `trainer/kit.py`: the desktop app's one-button training environment in `~/MortiflixSinger/kit` (uv, Python 3.11,
+  PyTorch, DiffSinger + BigVGAN zips at pinned commits). `trainer/train_vocoder.py`: small own vocoder (3.6 M params).
+- `plugin/au/`: AUv2 via clap-wrapper (CLAP embedded); built and auval-checked in the macOS CI job.
+- `docs/STATUS.md`: every definition-of-done item with its evidence. Keep it current.
 
 ## Gotchas (verified)
 - `/tmp` is a RAM tmpfs with a quota: put big temp files under `~/MortiflixSinger/tmp` (`TMPDIR=` for PyInstaller,
@@ -36,7 +47,9 @@ Every default decision made without the owner goes in `docs/DECISIONS.md`. The d
 - DiffSinger needs every dictionary phoneme in the data, including AP: takes need audible breaths.
 - clap-validator fails 4 state checks on any nih-plug plugin (their own gain example too).
 - The singer service is started by hand or by the MCP (`~/MortiflixSinger/service.pid`); restart it after server.py
-  edits. Editor browser tests: browser-harness `BU_NAME=mfxlappy`, own tab only.
+  edits. A training job survives a restart (own process group); the service re-finds it from `training/<name>/job.pid`.
+- Browser tests of the roll: CDP mouse input times out on a background tab; dispatch MouseEvents in the page instead
+  (`singer.roll` is exposed). Playback can't start without a user gesture, so test players by their state, not sound. Editor browser tests: browser-harness `BU_NAME=mfxlappy`, own tab only.
 
 ## Testing
 `.venv/bin/python -m pytest -q tests` (about 8 s; trainer tests also run in `trainer/.venv`). Plugin:
