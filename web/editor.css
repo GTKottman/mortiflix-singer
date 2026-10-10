@@ -57,3 +57,16 @@ select.btn { width: auto; display: inline-block; }
 .backing { margin-bottom: 14px; }
 .backing .name { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .track [hidden] { display: none !important; }
+/* small windows (laptops at 150% scaling, the desktop app on a 1280-px screen): one header row that scrolls
+   sideways instead of wrapping, narrower side panes */
+@media (max-width: 1280px) {
+  .ed-top { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .ed-top > * { flex-shrink: 0; }
+  .ed-top .title { width: 150px; }
+  .status { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1 !important; }
+  .ed-body { grid-template-columns: 180px 1fr 230px; }
+}
+@media (max-width: 960px) and (min-width: 901px) { .ed-body { grid-template-columns: 160px 1fr 200px; } }
+@media (max-width: 960px) { .ed-top .crumb, .ed-top .sep { display: none; } }
+.backing .btn { white-space: normal; text-align: left; }
+.ed-tracks { overflow-x: hidden; }

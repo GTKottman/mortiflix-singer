@@ -164,6 +164,11 @@ fn main() {
                     true
                 })
                 .build()?;
+            // a screen smaller than the default window (a laptop at 150% scaling): open maximized instead
+            if let Ok(Some(m)) = w.current_monitor() {
+                let size = m.size().to_logical::<f64>(m.scale_factor());
+                if size.width < 1500.0 || size.height < 960.0 { let _ = w.maximize(); }
+            }
             #[cfg(target_os = "linux")]
             w.with_webview(|wv| {
                 use webkit2gtk::{PermissionRequestExt, SettingsExt, WebViewExt};
