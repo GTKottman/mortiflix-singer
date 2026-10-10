@@ -33,7 +33,7 @@ def main():
             '--add-data', f'{ROOT / "trainer" / "*.py"}{sep}sources/trainer', '--add-data', f'{ROOT / "engine" / "*.py"}{sep}sources/engine',
             '--add-data', f'{ROOT / "booth" / "script.json"}{sep}sources/booth',
             '--collect-data', 'g2p_en', '--collect-data', 'faster_whisper',
-            '--collect-binaries', 'onnxruntime', '--collect-binaries', 'ctranslate2',
+            '--collect-binaries', 'onnxruntime', '--collect-binaries', 'ctranslate2',   # (onnxruntime-directml installs as onnxruntime)
             '--hidden-import', 'engine.checks', '--hidden-import', 'engine.formats',
             '--exclude-module', 'torch', '--exclude-module', 'matplotlib', '--exclude-module', 'tkinter',
             str(ROOT / 'server.py')]

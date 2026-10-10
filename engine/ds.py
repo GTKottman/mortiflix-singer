@@ -63,12 +63,29 @@ def fit_sum(durs, total):
     return durs
 
 
+def pick_providers():
+    """The fastest ONNX Runtime engine this machine has: NVIDIA (CUDA), any DirectX 12 card on Windows (DirectML), else
+    the processor. SINGER_PROVIDERS=cpu (or a comma list of provider names) overrides."""
+    import os
+    want = os.environ.get('SINGER_PROVIDERS', '').strip()
+    have = ort.get_available_providers()
+    if want: return ['CPUExecutionProvider'] if want == 'cpu' else [p for p in want.split(',') if p in have] + ['CPUExecutionProvider']
+    for p in ('CUDAExecutionProvider', 'DmlExecutionProvider'):
+        if p in have: return [p, 'CPUExecutionProvider']
+    return ['CPUExecutionProvider']
+
+
 class Voice:
     def __init__(self, root: str | Path, vocoder: str | Path, providers=None):
         self.root = Path(root)
-        prov = providers or (['CUDAExecutionProvider', 'CPUExecutionProvider'] if 'CUDAExecutionProvider' in ort.get_available_providers() else ['CPUExecutionProvider'])
+        prov = providers or pick_providers()
         so = ort.SessionOptions(); so.log_severity_level = 3
-        load = lambda p: ort.InferenceSession(str(p), so, providers=prov)
+
+        def load(p):
+            try: return ort.InferenceSession(str(p), so, providers=prov)
+            except Exception:              # a graphics provider that can't take this model: the processor always can
+                if prov == ['CPUExecutionProvider']: raise
+                return ort.InferenceSession(str(p), so, providers=['CPUExecutionProvider'])
         self.cfg = yaml.safe_load((self.root / 'dsconfig.yaml').read_text())
         self.tokens = json.loads((self.root / self.cfg['phonemes']).read_text())
         sub = lambda d: yaml.safe_load((self.root / d / 'dsconfig.yaml').read_text())

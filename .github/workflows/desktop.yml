@@ -31,7 +31,11 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Service dependencies
-        run: python -m pip install -r requirements.txt pyinstaller
+        shell: bash
+        run: |
+          python -m pip install -r requirements.txt pyinstaller
+          # Windows: the DirectML build of ONNX Runtime uses any DirectX 12 graphics card (falls back to the processor)
+          if [ "$RUNNER_OS" = "Windows" ]; then python -m pip uninstall -y onnxruntime && python -m pip install onnxruntime-directml; fi
       - name: Engine tests
         run: python -m pip install pytest && python -m pytest -q tests/test_formats.py tests/test_stdio.py
       - name: Bundle the service
