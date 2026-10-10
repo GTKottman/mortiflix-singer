@@ -1,6 +1,6 @@
 // Mortiflix Singer editor: one screen (tracks, piano roll with words on notes, lanes, inspector), rendering through
 // the singer service phrase by phrase while you edit.
-import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES, ticksPerBar, groupSpan } from './model.js';
+import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES, ticksPerBar, groupSpan, barAt, barToTick, tickToBar } from './model.js';
 import { Roll } from './roll.js';
 import { Lanes } from './lanes.js';
 import { Player } from './player.js';
@@ -203,7 +203,7 @@ function stepNote(pitch, dur, vel, at = app.playTick) {
 function makeGroup() {
   const t = app.track(), sel = t.notes.filter((n) => app.sel.has(n.id));
   if (app.groupEdit || sel.length < 1) { status('Select the notes to group first'); return; }
-  const p = app.project(), bar = ticksPerBar(p), t0 = Math.floor(Math.min(...sel.map((n) => n.tick)) / bar) * bar;   // groups start on a bar
+  const p = app.project(), t0 = barAt(p, Math.min(...sel.map((n) => n.tick))).start;   // groups start on a bar
   const gid = uid(), rid = uid(), name = `Group ${Object.keys(p.groups || {}).length + 1}`;
   app.edit('make group', (q) => {
     const tr = app.trackOf(q); q.groups = q.groups || {};
@@ -215,17 +215,17 @@ function makeGroup() {
 function refOf(id) { return (app.project().tracks.flatMap((t) => (t.refs || []).map((r) => ({ t, r })))).find((x) => x.r.id === id); }
 function groupPanel(box) {
   const x = refOf(app.selRef); if (!x) return false;
-  const p = app.project(), g = p.groups[x.r.group], bar = ticksPerBar(p), uses = p.tracks.reduce((a, t) => a + (t.refs || []).filter((r) => r.group === g.id).length, 0);
+  const p = app.project(), g = p.groups[x.r.group], uses = p.tracks.reduce((a, t) => a + (t.refs || []).filter((r) => r.group === g.id).length, 0);
   box.innerHTML = `<h3>Group</h3><div class="kv"><label>Name</label><input id="g-name"><label>At bar</label><input id="g-bar" type="number" min="1" step="0.25">
     <label>Transpose</label><input id="g-tr" type="number" step="1"></div><p class="muted" id="g-uses"></p>
     <p><button id="g-edit" class="btn tiny">Edit group</button> <button id="g-dup" class="btn tiny">Duplicate</button> <button id="g-un" class="btn tiny">Ungroup</button> <button id="g-del" class="btn tiny">Delete</button></p>`;
-  $('g-name').value = g.name; $('g-bar').value = +(x.r.tick / bar + 1).toFixed(2); $('g-tr').value = x.r.transpose || 0;
+  $('g-name').value = g.name; $('g-bar').value = +tickToBar(p, x.r.tick).toFixed(2); $('g-tr').value = x.r.transpose || 0;
   $('g-uses').textContent = `${g.notes.length} notes · used ${uses} time${uses === 1 ? '' : 's'}`;
   const setR = (label, fn) => app.edit(label, (q) => { const r = q.tracks.flatMap((t) => t.refs || []).find((r) => r.id === app.selRef); if (r) fn(r, q); });
   $('g-name').onchange = (e) => app.edit('rename group', (q) => { q.groups[g.id].name = e.target.value || g.name; });
-  $('g-bar').onchange = (e) => setR('move group', (r) => { r.tick = Math.max(0, Math.round((Number(e.target.value) - 1) * bar)); });
+  $('g-bar').onchange = (e) => setR('move group', (r) => { r.tick = Math.max(0, barToTick(p, Number(e.target.value))); });
   $('g-tr').onchange = (e) => setR('transpose group', (r) => { r.transpose = Number(e.target.value) || 0; });
-  $('g-dup').onclick = () => { const id = uid(); app.edit('duplicate group', (q) => { const tr = q.tracks.find((t) => (t.refs || []).some((r) => r.id === app.selRef)); const r = tr.refs.find((r) => r.id === app.selRef); tr.refs.push({ ...r, id, tick: r.tick + Math.ceil(groupSpan(g) / bar) * bar }); }); app.selRef = id; changed('select'); };
+  $('g-dup').onclick = () => { const id = uid(); app.edit('duplicate group', (q) => { const tr = q.tracks.find((t) => (t.refs || []).some((r) => r.id === app.selRef)); const r = tr.refs.find((r) => r.id === app.selRef); const end = r.tick + groupSpan(g), b = barAt(q, end); tr.refs.push({ ...r, id, tick: b.start === end ? end : b.start + b.len }); }); app.selRef = id; changed('select'); };
   $('g-un').onclick = () => app.edit('ungroup', (q) => {
     const tr = q.tracks.find((t) => (t.refs || []).some((r) => r.id === app.selRef)), r = tr.refs.find((r) => r.id === app.selRef);
     tr.notes.push(...q.groups[r.group].notes.map((n) => ({ ...n, id: uid(), tick: n.tick + r.tick, pitch: n.pitch + (r.transpose || 0) })));
@@ -274,10 +274,10 @@ function tracks() {
   }
 }
 function markersPane() {
-  const p = app.project(), box = $('markers'), bar = ticksPerBar(p); box.textContent = '';
+  const p = app.project(), box = $('markers'); box.textContent = '';
   for (const m of [...(p.markers || [])].sort((a, b) => a.tick - b.tick)) {
     const row = document.createElement('div'); row.className = 'row';
-    const go = document.createElement('button'); go.className = 'btn tiny'; go.textContent = `${+(m.tick / bar + 1).toFixed(2)}`; go.title = 'jump here';
+    const go = document.createElement('button'); go.className = 'btn tiny'; go.textContent = `${+tickToBar(p, m.tick).toFixed(2)}`; go.title = 'jump here';
     go.onclick = () => { app.seek(m.tick); roll.scrollTo(Math.max(0, m.tick - p.ppq)); };
     const nm = document.createElement('input'); nm.value = m.name; nm.className = 'marker-name';
     nm.onchange = () => app.edit('rename marker', (q) => { const x = q.markers.find((y) => y.id === m.id); if (x) x.name = nm.value || x.name; });
@@ -298,11 +298,11 @@ function markersPane() {
 function addMarker() { const p = app.project(), tick = Math.round(app.playTick); app.edit('add marker', (q) => { q.markers = [...(q.markers || []), { id: uid(), tick, name: `Marker ${(p.markers || []).length + 1}` }]; }); }
 function toggleLoop() { if (app.project().loop) app.edit('loop on/off', (q) => { q.loop.on = !q.loop.on; }); }
 function tempoPane() {
-  const p = app.project(), box = $('tempo'), bar = ticksPerBar(p); box.textContent = '';
+  const p = app.project(), box = $('tempo'); box.textContent = '';
   const marks = [...p.tempo].sort((a, b) => a.tick - b.tick).filter((t) => t.tick > 0);
   for (const tp of marks) {
     const row = document.createElement('div'); row.className = 'row';
-    const lab = document.createElement('span'); lab.textContent = `Bar ${+(tp.tick / bar + 1).toFixed(2)}`;
+    const lab = document.createElement('span'); lab.textContent = `Bar ${+tickToBar(p, tp.tick).toFixed(2)}`;
     const bpm = document.createElement('input'); bpm.type = 'number'; bpm.className = 'num'; bpm.step = '0.1'; bpm.min = '20'; bpm.max = '300'; bpm.value = tp.bpm;
     bpm.onchange = () => app.edit('tempo change', (q) => { const m = q.tempo.find((x) => x.tick === tp.tick); if (m) m.bpm = Number(bpm.value) || m.bpm; });
     const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = '×'; rm.title = 'remove this tempo change';
@@ -310,11 +310,26 @@ function tempoPane() {
     row.append(lab, bpm, document.createTextNode('BPM'), rm); box.append(row);
   }
   const add = document.createElement('div'); add.className = 'row';
-  const at = document.createElement('input'); at.type = 'number'; at.className = 'num'; at.min = '2'; at.step = '1'; at.value = Math.max(2, Math.floor(app.playTick / bar) + 1); at.title = 'bar';
+  const at = document.createElement('input'); at.type = 'number'; at.className = 'num'; at.min = '2'; at.step = '1'; at.value = Math.max(2, barAt(p, app.playTick).index + 1); at.title = 'bar';
   const nb = document.createElement('input'); nb.type = 'number'; nb.className = 'num'; nb.step = '0.1'; nb.value = p.tempo[0].bpm; nb.title = 'BPM';
   const go = document.createElement('button'); go.className = 'btn tiny'; go.textContent = 'Add';
-  go.onclick = () => { const tick = Math.round((Math.max(2, Number(at.value)) - 1) * bar); app.edit('tempo change', (q) => { q.tempo = q.tempo.filter((x) => x.tick !== tick); q.tempo.push({ tick, bpm: Number(nb.value) || q.tempo[0].bpm }); q.tempo.sort((a, b) => a.tick - b.tick); }); };
+  go.onclick = () => { const tick = barToTick(p, Math.max(2, Number(at.value))); app.edit('tempo change', (q) => { q.tempo = q.tempo.filter((x) => x.tick !== tick); q.tempo.push({ tick, bpm: Number(nb.value) || q.tempo[0].bpm }); q.tempo.sort((a, b) => a.tick - b.tick); }); };
   add.append(document.createTextNode('At bar'), at, nb, go); box.append(add);
+  // time-signature changes
+  for (const m of [...(p.meters || [])].sort((a, b) => a.bar - b.bar)) {
+    const row = document.createElement('div'); row.className = 'row';
+    const lab = document.createElement('span'); lab.textContent = `Bar ${m.bar + 1}: ${m.num}/${m.den}`;
+    const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = '×'; rm.title = 'remove this time signature';
+    rm.onclick = () => app.edit('remove time signature', (q) => { q.meters = q.meters.filter((x) => x.bar !== m.bar); });
+    row.append(lab, rm); box.append(row);
+  }
+  const ms = document.createElement('div'); ms.className = 'row';
+  const mb = document.createElement('input'); mb.type = 'number'; mb.className = 'num'; mb.min = '2'; mb.value = at.value; mb.title = 'bar';
+  const mv = document.createElement('input'); mv.className = 'num'; mv.value = '3/4'; mv.title = 'time signature';
+  const mg = document.createElement('button'); mg.className = 'btn tiny'; mg.textContent = 'Add';
+  mg.onclick = () => { const r = /^(\d+)\/(\d+)$/.exec(mv.value.trim()), bar = Math.max(2, Number(mb.value)) - 1; if (!r) return;
+    app.edit('time signature change', (q) => { q.meters = [...(q.meters || []).filter((x) => x.bar !== bar), { bar, num: Number(r[1]), den: Number(r[2]) }]; }); };
+  ms.append(document.createTextNode('Meter at bar'), mb, mv, mg); box.append(ms);
 }
 function backing() {
   const box = $('backing'), bk = app.project().backing; box.textContent = '';
@@ -563,8 +578,8 @@ let clipboard = null;
 // duplicate: a copy of the selection placed right after it (snapped to the bar when the selection is whole bars)
 function duplicateSel() {
   const sel = app.track().notes.filter((n) => app.sel.has(n.id)); if (!sel.length) return;
-  const lo = Math.min(...sel.map((n) => n.tick)), hi = Math.max(...sel.map((n) => n.tick + n.dur)), bar = ticksPerBar(app.project());
-  const span = lo % bar === 0 && (hi - lo) % bar === 0 ? hi - lo : Math.ceil((hi - lo) / (app.snapTicks() || 1)) * (app.snapTicks() || 1);
+  const lo = Math.min(...sel.map((n) => n.tick)), hi = Math.max(...sel.map((n) => n.tick + n.dur)), b0 = barAt(app.project(), lo), b1 = barAt(app.project(), hi);
+  const span = lo === b0.start && hi === b1.start ? hi - lo : Math.ceil((hi - lo) / (app.snapTicks() || 1)) * (app.snapTicks() || 1);
   const copies = sel.map((n) => ({ ...n, id: uid(), tick: n.tick + span }));
   app.edit('duplicate', (p) => app.trackOf(p).notes.push(...copies)); app.sel = new Set(copies.map((n) => n.id)); changed('select');
 }

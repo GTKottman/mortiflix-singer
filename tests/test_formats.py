@@ -51,3 +51,16 @@ def test_vsqx():
     x = '<vsq4 xmlns="http://www.yamaha.co.jp/vocaloid/schema/vsq4/"><masterTrack><resolution>480</resolution><tempo><t>0</t><v>14000</v></tempo></masterTrack><vsTrack><name>V</name><vsPart><t>1920</t><note><t>0</t><dur>480</dur><n>64</n><y>hi</y></note></vsPart></vsTrack></vsq4>'
     q = formats.from_vsqx(x.replace('vsPart', 'musicalPart'))
     assert strip(q) == [(1920, 480, 64, 'hi')] and q['tempo'][0]['bpm'] == 140
+
+
+def test_meter_changes_survive_midi_and_musicxml():
+    from engine.formats import to_midi, from_midi, to_musicxml, bar_segments
+    p = {'version': 1, 'ppq': 480, 'title': 'm', 'tempo': [{'tick': 0, 'bpm': 120}], 'time_sig': [4, 4],
+         'meters': [{'bar': 2, 'num': 3, 'den': 4}, {'bar': 4, 'num': 6, 'den': 8}],
+         'tracks': [{'id': 't1', 'name': 'Lead', 'notes': [{'id': 'a', 'tick': 0, 'dur': 480 * 14, 'pitch': 60, 'lyric': 'ah'}]}]}
+    assert bar_segments(p) == [(0, 0, 4, 4), (2, 3840, 3, 4), (4, 6720, 6, 8)]
+    back = from_midi(to_midi(p))
+    assert back['time_sig'] == [4, 4] and back['meters'] == p['meters']
+    xml = to_musicxml(p).decode()
+    assert '<beats>3</beats><beat-type>4</beat-type>' in xml and '<beats>6</beats><beat-type>8</beat-type>' in xml
+    assert xml.index('<beats>3</beats>') > xml.index('<measure number="3">')     # 3/4 starts at bar 3 (index 2)

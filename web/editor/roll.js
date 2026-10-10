@@ -1,5 +1,5 @@
 // The piano roll: notes with their words inside, phonemes and the rendered pitch drawn over them.
-import { tempoMap, ticksPerBar, syllables, uid, SCALES, groupSpan, trackNotes } from './model.js';
+import { tempoMap, ticksPerBar, syllables, uid, SCALES, groupSpan, trackNotes, barAt } from './model.js';
 
 const KEYW = 52, RULER = 26;
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -186,14 +186,21 @@ export class Roll {
     }
     // grid: bars, beats, snap
     const t1 = this.T(W), snapT = this.app.snapTicks();
-    const step = this.pxPerTick * beat < 12 ? bar : this.pxPerTick * (snapT || beat) < 10 ? beat : snapT || beat;
-    for (let k = Math.floor(this.x0 / step) * step; k <= t1; k += step) {
-      const x = this.X(k); g.strokeStyle = c('--line'); g.globalAlpha = k % bar === 0 ? 1 : k % beat === 0 ? 0.6 : 0.3; g.lineWidth = k % bar === 0 ? 1.2 : 0.6;
-      g.beginPath(); g.moveTo(x, RULER); g.lineTo(x, H); g.stroke(); g.globalAlpha = 1;
+    // grid: walk bar by bar (meters can change), with beat and snap lines inside each bar
+    const bars = [];
+    for (let b = barAt(p, Math.max(0, this.x0)); b.start <= t1; b = barAt(p, b.start + b.len)) {
+      bars.push(b);
+      const step = this.pxPerTick * b.beat < 12 ? b.len : this.pxPerTick * (snapT || b.beat) < 10 ? b.beat : snapT || b.beat;
+      for (let k = b.start; k < b.start + b.len - 0.5 && k <= t1; k += step) {
+        const x = this.X(k), atBar = k === b.start, onBeat = Math.abs((k - b.start) % b.beat) < 0.5;
+        g.strokeStyle = c('--line'); g.globalAlpha = atBar ? 1 : onBeat ? 0.6 : 0.3; g.lineWidth = atBar ? 1.2 : 0.6;
+        g.beginPath(); g.moveTo(x, RULER); g.lineTo(x, H); g.stroke(); g.globalAlpha = 1;
+      }
     }
     // ruler
     g.fillStyle = c('--bg'); g.fillRect(0, 0, W, RULER); g.fillStyle = c('--muted'); g.font = '11px Sora, sans-serif';
-    for (let k = Math.floor(this.x0 / bar) * bar; k <= t1; k += bar) { const x = this.X(k); if (x >= KEYW) g.fillText(String(k / bar + 1), x + 3, 16); }
+    for (const b of bars) { const x = this.X(b.start); if (x >= KEYW) g.fillText(String(b.index + 1), x + 3, 16); }
+    for (const m of p.meters || []) { const b = bars.find((x) => x.index === m.bar); if (b) { const x = this.X(b.start); if (x >= KEYW) { g.fillStyle = c('--ink'); g.fillText(`${m.num}/${m.den}`, x + 3, 24); g.fillStyle = c('--muted'); } } }
     // loop region (shift-drag on the ruler; L turns it on and off) and markers
     const lp = this.drag?.kind === 'loop' ? { start: Math.min(this.drag.a, this.drag.b), end: Math.max(this.drag.a, this.drag.b), on: true } : p.loop;
     if (lp) { const x1 = Math.max(KEYW, this.X(lp.start)), x2 = this.X(lp.end); if (x2 > KEYW) { g.fillStyle = c('--accent'); g.globalAlpha = lp.on ? 0.28 : 0.1; g.fillRect(x1, 0, x2 - x1, RULER); g.globalAlpha = lp.on ? 0.05 : 0.02; g.fillRect(x1, RULER, x2 - x1, H); g.globalAlpha = 1; } }

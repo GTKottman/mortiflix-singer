@@ -72,3 +72,27 @@ export function trackNotes(p, t) {
   return out;
 }
 export function groupSpan(g) { return g.notes.length ? Math.max(...g.notes.map((n) => n.tick + n.dur)) : 0; }
+
+// meters: time_sig from bar 0, then project.meters = [{bar (0-based), num, den}] -> segments with their start ticks
+export function barSegments(p) {
+  const segs = [{ bar: 0, tick: 0, num: p.time_sig[0], den: p.time_sig[1] }];
+  for (const m of [...(p.meters || [])].sort((a, b) => a.bar - b.bar)) {
+    const l = segs[segs.length - 1]; if (m.bar <= l.bar) continue;
+    segs.push({ bar: m.bar, tick: l.tick + (m.bar - l.bar) * p.ppq * 4 * l.num / l.den, num: m.num, den: m.den });
+  }
+  return segs;
+}
+// the bar a tick is in: { index (0-based), start, len, num, den, beat }
+export function barAt(p, tick) {
+  const segs = barSegments(p); let s = segs[0];
+  for (const x of segs) if (x.tick <= tick) s = x;
+  const len = p.ppq * 4 * s.num / s.den, k = Math.floor((tick - s.tick) / len);
+  return { index: s.bar + k, start: s.tick + k * len, len, num: s.num, den: s.den, beat: p.ppq * 4 / s.den };
+}
+// bar number (1-based, may be fractional) <-> tick
+export function barToTick(p, bar) {
+  const i = bar - 1, segs = barSegments(p); let s = segs[0];
+  for (const x of segs) if (x.bar <= i) s = x;
+  return Math.round(s.tick + (i - s.bar) * p.ppq * 4 * s.num / s.den);
+}
+export function tickToBar(p, tick) { const b = barAt(p, tick); return b.index + 1 + (tick - b.start) / b.len; }

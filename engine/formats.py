@@ -19,13 +19,13 @@ def from_midi(data: bytes, title='Imported'):
     k = PPQ / mf.ticks_per_beat
     p = new_project(title); p['tempo'] = []; p['tracks'] = []
     lyrics = {}                               # tick -> word, from any track's lyric/text events
-    parts = {}
+    parts, sigs = {}, []
     for ti, tr in enumerate(mf.tracks):
         t, on, name = 0, {}, f'Track {ti + 1}'
         for m in tr:
             t += m.time
             if m.type == 'set_tempo': p['tempo'].append({'tick': int(t * k), 'bpm': round(mido.tempo2bpm(m.tempo), 3)})
-            elif m.type == 'time_signature': p['time_sig'] = [m.numerator, m.denominator]
+            elif m.type == 'time_signature': sigs.append((int(t * k), m.numerator, m.denominator))
             elif m.type == 'track_name': name = m.name or name
             elif m.type in ('lyrics', 'text') and m.text.strip() and not m.text.startswith(('@', '%')): lyrics[int(t * k)] = m.text.strip()
             elif m.type == 'note_on' and m.velocity > 0: on[(m.channel, m.note)] = (t, m.velocity)
@@ -33,6 +33,16 @@ def from_midi(data: bytes, title='Imported'):
                 s, v = on.pop((m.channel, m.note))
                 parts.setdefault((ti, m.channel, name), []).append({**_note(s * k, (t - s) * k, m.note, None), 'vel': v})
     p['tempo'] = p['tempo'] or [{'tick': 0, 'bpm': 120}]
+    sigs = sorted(set(sigs))
+    if sigs:                                  # the first meter is the song's; later ones become meter changes at their bars
+        p['time_sig'] = [sigs[0][1], sigs[0][2]] if sigs[0][0] == 0 else p['time_sig']
+        p['meters'] = []
+        for tick, n, d in sigs:
+            if tick == 0: continue
+            segs = bar_segments(p); b0, t0, n0, d0 = segs[-1]
+            bar = b0 + round((tick - t0) / (PPQ * 4 * n0 / d0))
+            p['meters'].append({'bar': int(bar), 'num': n, 'den': d})
+        if not p['meters']: del p['meters']
     for (ti, ch, name), notes in parts.items():
         if ch == 9: continue                  # drums are not sung
         notes.sort(key=lambda n: n['tick'])
@@ -48,11 +58,11 @@ def from_midi(data: bytes, title='Imported'):
 def to_midi(project) -> bytes:
     mf = mido.MidiFile(ticks_per_beat=project.get('ppq', PPQ))
     cond = mido.MidiTrack(); mf.tracks.append(cond)
+    metas = [(tp['tick'], mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(tp['bpm']))) for tp in project.get('tempo', [])]
+    metas += [(t0, mido.MetaMessage('time_signature', numerator=n, denominator=d)) for _, t0, n, d in bar_segments(project)]
     last = 0
-    for tp in sorted(project.get('tempo', []), key=lambda x: x['tick']):
-        cond.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(tp['bpm']), time=tp['tick'] - last)); last = tp['tick']
-    ts = project.get('time_sig', [4, 4])
-    cond.insert(0, mido.MetaMessage('time_signature', numerator=ts[0], denominator=ts[1], time=0))
+    for tick, msg in sorted(metas, key=lambda x: (x[0], x[1].type != 'time_signature')):
+        cond.append(msg.copy(time=int(tick) - last)); last = int(tick)
     for ci, t in enumerate(project['tracks']):
         tr = mido.MidiTrack(); mf.tracks.append(tr); tr.append(mido.MetaMessage('track_name', name=t['name'], time=0))
         ev = []
@@ -170,6 +180,24 @@ def from_musicxml(text: str, title='MusicXML'):
     return p
 
 
+def bar_segments(project):
+    """[(first bar index, start tick, num, den)]: the song's meters (time_sig from bar 0, then project['meters'] =
+    [{bar, num, den}] with 0-based bar indexes)."""
+    ppq = project.get('ppq', PPQ); ts = project.get('time_sig', [4, 4])
+    segs = [(0, 0, ts[0], ts[1])]
+    for m in sorted(project.get('meters') or [], key=lambda m: m['bar']):
+        b0, t0, n0, d0 = segs[-1]
+        if m['bar'] <= b0: continue
+        segs.append((m['bar'], t0 + (m['bar'] - b0) * ppq * 4 * n0 // d0, m['num'], m['den']))
+    return segs
+
+
+def bar_len(project, bar_index):
+    ppq = project.get('ppq', PPQ)
+    b0, t0, n, d = [s for s in bar_segments(project) if s[0] <= bar_index][-1]
+    return ppq * 4 * n // d, (n, d)
+
+
 def to_musicxml(project) -> bytes:
     """One part per track; durations in divisions of 480 per quarter; rests filled in; lyrics with syllabic."""
     names = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B']; alters = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0]
@@ -184,6 +212,7 @@ def to_musicxml(project) -> bytes:
             if n['tick'] > cur: events.append((cur, n['tick'] - cur, None))
             events.append((n['tick'], n['dur'], n)); cur = n['tick'] + n['dur']
         m, pos = 1, 0
+        bar, meter = bar_len(project, 0)
         out.append(f'<measure number="1"><attributes><divisions>{PPQ}</divisions><time><beats>{ts[0]}</beats><beat-type>{ts[1]}</beat-type></time></attributes>')
         if i == 0: out.append(f'<direction><sound tempo="{project["tempo"][0]["bpm"]}"/></direction>')
         prev_join = False
@@ -202,7 +231,10 @@ def to_musicxml(project) -> bytes:
                     out.append(f'<note><pitch><step>{names[pc]}</step>{"<alter>1</alter>" if alters[pc] else ""}<octave>{n["pitch"] // 12 - 1}</octave></pitch><duration>{d}</duration>{tie}{lyric}</note>')
                     if first: prev_join = join if ly not in ('_', '+') else prev_join
                 dur -= d; pos += d; dur_full = -1      # a note cut at a barline carries its lyric on the first piece
-                if pos >= bar: m += 1; pos = 0; out.append(f'</measure><measure number="{m}">')
+                if pos >= bar:
+                    m += 1; pos = 0; out.append(f'</measure><measure number="{m}">')
+                    bar, new = bar_len(project, m - 1)
+                    if new != meter: out.append(f'<attributes><time><beats>{new[0]}</beats><beat-type>{new[1]}</beat-type></time></attributes>'); meter = new
         out.append('</measure></part>')
     out.append('</score-partwise>')
     return '\n'.join(out).encode()
