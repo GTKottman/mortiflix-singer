@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window: no Tauri commands are used; pages talk to the service over the singer:// protocol",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

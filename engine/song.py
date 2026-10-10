@@ -46,12 +46,17 @@ def read_midi(path, channel=None):
     return notes
 
 
+BREATHS = ('br', 'ap', 'breath')
+
+
 def words_of(notes, tokens, voice_tokens):
     """Pair notes with lyric tokens into Words (silent notes dropped)."""
     words, cur = [], None
     for (s, d, p), tok in zip(notes, tokens):
         n = Note(s, d, float(p), tok)
         if tok == '.': cur = None; continue
+        if tok.lower() in BREATHS:                       # a breath note: an in-breath (AP) lasting the note
+            words.append(Word([n], ['AP'] if 'AP' in voice_tokens else ['SP'])); cur = None; continue
         if tok == '_' and words:
             words[-1].holds.add(len(words[-1].notes)); words[-1].notes.append(n); continue
         if cur is not None:

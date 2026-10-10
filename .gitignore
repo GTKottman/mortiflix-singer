@@ -8,3 +8,8 @@ out/
 *.onnx
 *.zip
 *.oudep
+build/
+app/src-tauri/target/
+app/src-tauri/binaries/
+app/src-tauri/gen/
+trainer/.venv/

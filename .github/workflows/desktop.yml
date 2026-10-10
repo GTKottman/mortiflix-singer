@@ -1,0 +1,65 @@
+# Desktop installers for Windows, macOS (Apple silicon) and Linux. Each build bundles the singer service
+# (PyInstaller) as the app's sidecar, then Tauri packages both. Tags v* publish a GitHub release.
+name: desktop
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths: ['app/**', 'web/**', 'engine/**', 'booth/**', 'server.py', 'requirements.txt', 'packaging/**', '.github/workflows/desktop.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Service dependencies
+        run: python -m pip install -r requirements.txt pyinstaller
+      - name: Engine tests
+        run: python -m pip install pytest && python -m pytest -q tests/test_formats.py tests/test_stdio.py
+      - name: Bundle the service
+        run: python packaging/build_service.py
+      - name: Smoke-test the bundled service
+        shell: bash
+        run: |
+          exe=$(ls app/src-tauri/binaries/singer-service-*)
+          printf '{"id": 1, "len": 44}\nGET /api/singer/script HTTP/1.1\r\nHost: x\r\n\r\n' | "$exe" --stdio --home "$RUNNER_TEMP/home" > "$RUNNER_TEMP/out.bin"
+          head -c 200 "$RUNNER_TEMP/out.bin"; grep -q "200 OK" "$RUNNER_TEMP/out.bin"
+      - name: Build the app
+        working-directory: app
+        run: npx --yes @tauri-apps/cli@2 build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mortiflix-singer-${{ matrix.os }}
+          path: |
+            app/src-tauri/target/release/bundle/msi/*.msi
+            app/src-tauri/target/release/bundle/nsis/*.exe
+            app/src-tauri/target/release/bundle/dmg/*.dmg
+            app/src-tauri/target/release/bundle/appimage/*.AppImage
+            app/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          draft: true

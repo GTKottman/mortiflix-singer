@@ -12,6 +12,8 @@ import numpy as np, soundfile as sf
 
 warnings.filterwarnings('ignore')
 HERE = Path(__file__).parent
+if getattr(sys, 'frozen', False):          # the desktop app's bundled service: data files unpacked next to it
+    os.environ.setdefault('NLTK_DATA', str(Path(sys._MEIPASS) / 'nltk_data'))
 sys.path.insert(0, str(HERE))
 from booth.grade import grade
 from engine import formats
@@ -39,8 +41,9 @@ class Store:
         found = {}
         for base in (self.home / 'voices', HERE / 'voices'):
             if not base.exists(): continue
-            for cfg in base.glob('**/dsconfig.yaml'):
-                d = cfg.parent
+            for top, dirs, files in os.walk(base, followlinks=True):    # voices may be linked in from elsewhere
+                if 'dsconfig.yaml' not in files: continue
+                d = Path(top)
                 if d.name in ('dsdur', 'dspitch', 'dsvariance'): continue
                 found.setdefault(d.name, d)
         return found
@@ -48,7 +51,7 @@ class Store:
     def vocoder_dir(self):
         for base in (self.home / 'voices', HERE / 'voices'):
             if (base / 'nsf_hifigan' / 'vocoder.yaml').exists(): return base / 'nsf_hifigan'
-        raise FileNotFoundError('no vocoder: put the OpenVPI NSF-HiFiGAN in voices/nsf_hifigan')
+        raise FileNotFoundError('no vocoder yet: install it on the Singer home page (Voices)')
 
     def voice(self, name):
         from engine.ds import Voice
@@ -98,8 +101,128 @@ class Store:
         return {'sets': sets, 'next': nxt, 'kept': b['kept'], 'takes': {k: [t['grade'] for t in v] for k, v in b['takes'].items()}}
 
 
+DOWNLOADS = {   # official releases only, fetched on the user's request; never bundled (their licenses are not ours)
+    'vocoder': {'title': 'NSF-HiFiGAN vocoder (OpenVPI)', 'required': True, 'size_mb': 53,
+                'url': 'https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-44.1k-hop512-128bin-2024.02/nsf_hifigan_44.1k_hop512_128bin_2024.02.oudep',
+                'dest': 'nsf_hifigan', 'license': 'CC BY-NC-SA 4.0: non-commercial use only'},
+    'SPORE': {'title': 'SPORE, an English voice by Knoxstation', 'required': False, 'size_mb': 300,
+              'url': 'https://github.com/knoxstation/SPORE/releases/download/v.0.1.1/SPORE011.zip',
+              'dest': 'SPORE', 'license': 'CC BY-NC-ND 4.0: non-commercial use only, credit Knoxstation',
+              'terms': 'https://github.com/knoxstation/SPORE/blob/main/TOS.md'},
+}
+
+
+class Downloads:
+    """Voice and vocoder downloads, one thread each, progress kept in memory."""
+    def __init__(self, store):
+        self.store, self.jobs = store, {}
+
+    def installed(self, key):
+        d = self.store.home / 'voices' / DOWNLOADS[key]['dest']
+        return d.exists() and any(d.rglob('vocoder.yaml' if key == 'vocoder' else 'dsconfig.yaml'))
+
+    def status(self):
+        return [{'id': k, **{x: v[x] for x in ('title', 'required', 'size_mb', 'license')}, 'terms': v.get('terms'),
+                 'installed': self.installed(k), **self.jobs.get(k, {})} for k, v in DOWNLOADS.items()]
+
+    def start(self, key):
+        import urllib.request, zipfile, shutil, tempfile
+        if key not in DOWNLOADS: raise ValueError('unknown download')
+        if self.jobs.get(key, {}).get('state') == 'downloading': return {'started': False}
+        info = DOWNLOADS[key]; job = self.jobs[key] = {'state': 'downloading', 'done_mb': 0.0}
+
+        def run():
+            try:
+                tmp = Path(tempfile.mkstemp(suffix='.zip', dir=self.store.home)[1])
+                with urllib.request.urlopen(info['url'], timeout=60) as r, open(tmp, 'wb') as f:
+                    total = int(r.headers.get('content-length') or 0); job['total_mb'] = round(total / 1e6, 1)
+                    while (chunk := r.read(1 << 20)):
+                        f.write(chunk); job['done_mb'] = round(f.tell() / 1e6, 1)
+                job['state'] = 'unpacking'
+                dest = self.store.home / 'voices' / info['dest']
+                if dest.exists(): shutil.rmtree(dest)
+                with zipfile.ZipFile(tmp) as z:
+                    for m in z.namelist():                       # nothing may land outside the voice folder
+                        if m.startswith('/') or '..' in Path(m).parts: raise ValueError(f'unsafe path in the download: {m}')
+                    z.extractall(dest)
+                tmp.unlink()
+                if key == 'vocoder':                             # the engine wants vocoder.yaml at the folder's top
+                    y = next(dest.rglob('vocoder.yaml')).parent
+                    if y != dest:
+                        for f in y.iterdir(): shutil.move(str(f), dest / f.name)
+                job['state'] = 'installed'
+            except Exception as e:
+                job.update(state='failed', error=str(e) or type(e).__name__)
+        threading.Thread(target=run, daemon=True).start()
+        return {'started': True}
+
+
+MIN_MINUTES = 30        # below this a voice is too thin to be worth hours of training (DiffSinger asks for about an hour)
+TRAIN_PY = HERE / 'trainer' / '.venv' / 'bin' / 'python'
+
+
+class Trainer:
+    """One training job at a time, in the background: Booth takes -> dataset -> DiffSinger -> a voice in voices/.
+    The job runs as its own process (PID kept, stopped by PID only) so the service stays free to render."""
+    def __init__(self, store):
+        self.store, self.proc, self.name, self.gpu = store, None, None, None
+
+    def work(self, name): return self.store.home / 'training' / name
+
+    def running(self): return self.proc is not None and self.proc.poll() is None
+
+    def has_gpu(self):
+        if self.gpu is None:
+            import subprocess
+            try: self.gpu = subprocess.run([str(TRAIN_PY), '-c', 'import torch; print(torch.cuda.is_available())'], capture_output=True, text=True, timeout=60).stdout.strip() == 'True'
+            except Exception: self.gpu = False
+        return self.gpu
+
+    def status(self, name):
+        b = self.store.booth(name)
+        minutes = 0.0
+        for lid, k in b['kept'].items():
+            f = self.store.dataset(name) / 'raw' / f'{lid}_{k}.wav'
+            if f.exists(): minutes += sf.info(f).duration / 60
+        w = self.work(name)
+        state = json.loads((w / 'state.json').read_text()) if (w / 'state.json').exists() else {}
+        log = (w / 'train.log').read_text(errors='replace')[-6000:] if (w / 'train.log').exists() else ''
+        steps = re.findall(r'steps=(\d+)', log)
+        return {'name': name, 'kept': len(b['kept']), 'lines': len(SCRIPT), 'minutes': round(minutes, 1), 'min_minutes': MIN_MINUTES,
+                'installed': TRAIN_PY.exists(), 'gpu': self.has_gpu() if TRAIN_PY.exists() else False,
+                'running': self.running() and self.name == name, 'busy_with': self.name if self.running() else None,
+                'state': state, 'step': int(steps[-1]) if steps else None,
+                'log': '\n'.join(l.split('\r')[-1] for l in log.splitlines()[-12:]),
+                'voice': name in self.store.voice_dirs(), 'exit': None if self.proc is None or self.running() else self.proc.returncode}
+
+    def start(self, name, steps=160000, smoke=False):
+        import subprocess
+        if self.running(): raise ValueError(f'already training "{self.name}"')
+        if not TRAIN_PY.exists(): raise ValueError('the training environment is not installed: run trainer/setup.sh')
+        st = self.status(name)
+        if not smoke and st['minutes'] < MIN_MINUTES: raise ValueError(f'{st["minutes"]} min recorded; record at least {MIN_MINUTES} min first')
+        w = self.work(name); w.mkdir(parents=True, exist_ok=True)
+        data = self.store.home / 'train' / name
+        script = (f'"{TRAIN_PY}" "{HERE}/trainer/build_dataset.py" --booth "{self.store.dataset(name)}" --out "{data}" '
+                  f'&& "{TRAIN_PY}" "{HERE}/trainer/train.py" --data "{data}" --name "{name}" --steps {int(steps)}'
+                  f' --voices "{self.store.home}/voices"' + (' --smoke' if smoke else ''))
+        log = open(w / 'train.log', 'a')
+        self.proc = subprocess.Popen(['bash', '-c', script], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        self.name = name
+        (w / 'job.pid').write_text(str(self.proc.pid))
+        return {'started': True, 'pid': self.proc.pid}
+
+    def stop(self):
+        import signal
+        if not self.running(): return {'stopped': False}
+        os.killpg(self.proc.pid, signal.SIGTERM)     # its own process group: the job and only the job
+        return {'stopped': True}
+
+
 class Handler(BaseHTTPRequestHandler):
     store: Store = None
+    trainer: Trainer = None
+    downloads: Downloads = None
 
     def log_message(self, *a): pass
 
@@ -131,6 +254,8 @@ class Handler(BaseHTTPRequestHandler):
                 d = self.store.voice_dirs().get(m.group(1))
                 return self.send(200, (d / 'icon.png').read_bytes(), 'image/png') if d and (d / 'icon.png').exists() else self.send(404, {'error': 'no image'})
             if path == '/booth/progress': return self.send(200, self.store.progress(name))
+            if path == '/train/status': return self.send(200, self.trainer.status(name))
+            if path == '/downloads': return self.send(200, self.downloads.status())
             if path == '/booth/take.wav':
                 if not ID.match(q.get('id', '')): return self.send(400, {'error': 'bad id'})
                 f = self.store.dataset(name) / 'raw' / f"{q['id']}_{int(q.get('take', 1))}.wav"
@@ -212,6 +337,11 @@ class Handler(BaseHTTPRequestHandler):
                 bits = {'16': 'PCM_16', '24': 'PCM_24', '32': 'FLOAT'}.get(str(req.get('bits', 24)), 'PCM_24')
                 buf = io.BytesIO(); sf.write(buf, mix, sr, subtype=bits, format='WAV')
                 return self.send(200, buf.getvalue(), 'audio/wav')
+            if path == '/train/start':
+                req = json.loads(body or b'{}')
+                return self.send(200, self.trainer.start(name, int(req.get('steps', 160000)), bool(req.get('smoke'))))
+            if path == '/train/stop': return self.send(200, self.trainer.stop())
+            if path == '/downloads/start': return self.send(200, self.downloads.start(q.get('id', '')))
             if path == '/booth/keep':
                 with lock:
                     b = self.store.booth(name); lid = q.get('id', '')
@@ -231,15 +361,53 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         return req, ('local', 0)      # BaseHTTPRequestHandler wants a (host, port) pair
 
 
+def serve_stdio():
+    """The desktop app's transport: no socket file, no port. Each request arrives on stdin as a line of JSON
+    {"id": n, "len": N} followed by N bytes of a raw HTTP request; each answer goes to stdout the same way, raw HTTP
+    response bytes. Requests run in parallel threads; the handler code is the same as over the socket (each request is
+    played through a socket pair)."""
+    import socket
+    out, out_lock = sys.stdout.buffer, threading.Lock()
+    sys.stdout = sys.stderr                     # stray prints must never corrupt the frames
+
+    class One:                                  # the minimum of a server a handler needs
+        pass
+
+    def answer(rid, raw):
+        a, b = socket.socketpair()
+        try:
+            a.sendall(raw); a.shutdown(socket.SHUT_WR)
+            t = threading.Thread(target=lambda: (Handler(b, ('local', 0), One()), b.close()), daemon=True); t.start()
+            chunks = []
+            while (c := a.recv(1 << 16)): chunks.append(c)
+            data = b''.join(chunks)
+        finally:
+            a.close()
+        with out_lock:
+            out.write(json.dumps({'id': rid, 'len': len(data)}).encode() + b'\n' + data); out.flush()
+
+    inp, live = sys.stdin.buffer, []
+    while (line := inp.readline()):
+        if not line.strip(): continue
+        h = json.loads(line); raw = inp.read(h['len'])
+        t = threading.Thread(target=answer, args=(h['id'], raw), daemon=True); t.start()
+        live = [x for x in live if x.is_alive()] + [t]
+    for t in live: t.join()                     # the app closed our input: finish what was asked, then stop
+
+
 def main():
     ap = argparse.ArgumentParser()
     home = Path(os.environ.get('SINGER_HOME', Path.home() / 'MortiflixSinger'))
     ap.add_argument('--home', default=str(home)); ap.add_argument('--socket')
+    ap.add_argument('--stdio', action='store_true', help='serve requests framed on stdin/stdout (the desktop app)')
     a = ap.parse_args()
     home = Path(a.home); home.mkdir(parents=True, exist_ok=True)
+    if a.stdio:
+        Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)
+        return serve_stdio()
     sock = Path(a.socket or home / 'singer.sock')
     if sock.exists(): sock.unlink()
-    Handler.store = Store(home)
+    Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)
     srv = Server(str(sock), Handler)
     os.chmod(sock, 0o600)
     print(f'singer service on {sock}', flush=True)

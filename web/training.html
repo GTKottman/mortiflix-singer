@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Training · Mortiflix Singer</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="booth.css">
+</head>
+<body>
+<header class="booth-top"><a class="brand" href="/">Mortiflix</a><a class="crumb" href="./">Singer</a><span class="crumb">Training</span></header>
+<main class="booth-main">
+  <h1>Train your voice</h1>
+  <p class="lead">Your kept Booth takes become a voice the editor can sing with. Training runs in the background; you can close this page.</p>
+  <p><label>Voice name <input id="name" value="you" maxlength="40"></label></p>
+  <div class="facts">
+    <div><span class="muted">Recorded</span><b id="minutes">–</b></div>
+    <div><span class="muted">Lines kept</span><b id="kept">–</b></div>
+    <div><span class="muted">Computer</span><b id="gpu">–</b></div>
+    <div><span class="muted">Status</span><b id="state">–</b></div>
+  </div>
+  <div class="bar"><div id="bar-fill" class="bar-fill"></div></div>
+  <p id="advice" class="lead"></p>
+  <div class="controls">
+    <button id="start" class="btn primary" disabled>Start training</button>
+    <button id="stop" class="btn" hidden>Stop</button>
+    <a id="booth" class="btn" href="booth.html">Record more in the Booth</a>
+    <a id="use" class="btn" href="editor.html" hidden>Sing with it in the Editor</a>
+  </div>
+  <pre id="log" class="log" hidden></pre>
+</main>
+<script type="module" src="training.js"></script>
+</body>
+</html>

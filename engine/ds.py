@@ -188,9 +188,10 @@ class Voice:
         notes = [n for w in words for n in w.notes]
         nd, nm, nr = [max(0.0, notes[0].start - t0)], [notes[0].midi], [True]
         prev = notes[0].start
+        breath = {id(n) for w in words if w.phonemes == ['AP'] for n in w.notes}
         for n in notes:
             if n.start - prev > 0: nd.append(n.start - prev); nm.append(n.midi); nr.append(True)
-            nd.append(n.dur); nm.append(n.midi); nr.append(False); prev = n.start + n.dur
+            nd.append(n.dur); nm.append(n.midi); nr.append(id(n) in breath); prev = n.start + n.dur
         nd.append(TAIL * fm); nm.append(notes[-1].midi); nr.append(True)
         note_dur = fit_sum(frames_from_ms(nd, fm), total)
         pin = {'encoder_out': enc, 'ph_dur': ph_dur, 'note_midi': np.array([nm], np.float32),
@@ -204,7 +205,7 @@ class Voice:
         frame_of = lambda ms: int(np.clip((ms - t0) / fm, 0, total))
         for n in notes:
             a, b = frame_of(n.start), frame_of(n.start + n.dur)
-            if b - a < 3: continue
+            if b - a < 3 or id(n) in breath: continue
             m0, m1 = a + int(0.2 * (b - a)), a + int(0.8 * (b - a))
             off[a:b] = correct * (n.midi - np.median(pitch[m0:m1]))
         k = max(1, int(30 / fm))

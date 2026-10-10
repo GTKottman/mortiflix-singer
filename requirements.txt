@@ -1,0 +1,11 @@
+# the singer service and engine (the desktop app bundles these; training has its own environment, trainer/setup.sh)
+numpy
+scipy
+soundfile
+pyyaml
+onnxruntime
+g2p_en
+nltk
+mido
+pyworld
+faster-whisper
