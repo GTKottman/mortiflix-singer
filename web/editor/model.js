@@ -106,3 +106,27 @@ export function barToTick(p, bar) {
   return Math.round(s.tick + (i - s.bar) * p.ppq * 4 * s.num / s.den);
 }
 export function tickToBar(p, tick) { const b = barAt(p, tick); return b.index + 1 + (tick - b.start) / b.len; }
+
+// a word cut into its syllables for singing ("sunrise" -> ["sun-", "rise"]): vowel groups, with V-CV and VC-CV
+// splits (th/sh/ch/ph/wh/ck/ng stay together); as many parts as syllables() counts
+export function syllabify(word, lang = 'en') {
+  const n = syllables(word, lang); if (n <= 1) return [word];
+  const w = word, lower = w.toLowerCase(), V = /[aeiouy]/;
+  const groups = []; let i = 0;
+  while (i < lower.length) { if (V.test(lower[i]) && !(lower[i] === 'y' && i === 0)) { const a = i; while (i < lower.length && V.test(lower[i])) i++; groups.push([a, i]); } else i++; }
+  const cuts = [];
+  for (let g = 0; g + 1 < groups.length && cuts.length < n - 1; g++) {
+    const a = groups[g][1], b = groups[g + 1][0], cons = lower.slice(a, b);
+    if (b === lower.length - 1 && lower.endsWith('e')) break;         // a silent final e is no syllable
+    let cut = cons.length <= 1 ? a : a + 1;
+    if (cons.length >= 4 && /^(str|spr|scr|spl|thr|shr)$/.test(cons.slice(-3))) cut = b - 3;
+    else if (cons.length >= 3) cut = /^(bl|br|cl|cr|dr|fl|fr|gl|gr|pl|pr|sc|sk|sl|sm|sn|sp|st|sw|tr|tw|wr|kn|thr|str)$/.test(cons.slice(-2)) ? b - 2 : b - 1;
+    if (cons.length >= 2 && /^(th|sh|ch|ph|wh|ck|ng)/.test(cons.slice(0, 2)) && cons.length === 2) cut = a;
+    if (cons.length >= 2 && /^(ck|ng)$/.test(cons.slice(0, 2))) cut = a + 2;
+    cuts.push(cut);
+  }
+  const parts = []; let last = 0;
+  for (const c of cuts) { parts.push(w.slice(last, c)); last = c; }
+  parts.push(w.slice(last));
+  return parts.filter(Boolean).map((x, k, all) => (k < all.length - 1 ? `${x}-` : x));
+}

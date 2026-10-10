@@ -1,6 +1,6 @@
 // Mortiflix Singer editor: one screen (tracks, piano roll with words on notes, lanes, inspector), rendering through
 // the singer service phrase by phrase while you edit.
-import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES, ticksPerBar, groupSpan, barAt, barToTick, tickToBar } from './model.js';
+import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, syllabify, uid, PPQ, SCALES, ticksPerBar, groupSpan, barAt, barToTick, tickToBar } from './model.js';
 import { Roll } from './roll.js';
 import { Lanes } from './lanes.js';
 import { Player } from './player.js';
@@ -457,7 +457,23 @@ function inspector() {
   $('i-ptake').onchange = (e) => retake(n, Number(e.target.value), 'pitch'); $('i-ttake').onchange = (e) => retake(n, Number(e.target.value), 'tone');
   $('i-retake').onclick = () => retake(n, +1, 'pitch'); $('i-retone').onclick = () => retake(n, +1, 'tone');
   $('i-vel').onchange = setn('vel', Number); $('i-vd').onchange = setn('vib_depth', Number); $('i-vr').onchange = setn('vib_rate', Number); $('i-vs').onchange = setn('vib_start', Number);
-  if (app.syllableTrouble().has(n.id)) $('i-warn').textContent = 'This word has more syllables than notes: split it over more notes (sun- rise), or pick a shorter word.';
+  if (app.syllableTrouble().has(n.id)) {
+    $('i-warn').textContent = 'This word has more syllables than notes: split it over more notes (sun- rise), or pick a shorter word. ';
+    const parts = syllabify((n.lyric || '').replace(/-$/, ''), t.lang);
+    if (parts.length > 1 && !(n.lyric || '').endsWith('-')) {
+      const b = document.createElement('button'); b.className = 'btn tiny'; b.textContent = `Split it for me (${parts.join(' ')})`;
+      b.onclick = () => {
+        const step = Math.max(30, Math.floor(n.dur / parts.length)), ids = [];
+        app.edit('split word', (p) => {
+          const tr = app.trackOf(p), m = tr.notes.find((x) => x.id === n.id); if (!m) return;
+          const total = m.dur; m.lyric = parts[0]; m.dur = step; ids.push(m.id);
+          for (let k = 1; k < parts.length; k++) { const id = uid(); ids.push(id); tr.notes.push({ ...m, id, tick: m.tick + k * step, dur: k === parts.length - 1 ? total - step * k : step, lyric: parts[k], ph_scale: null }); }
+        });
+        app.sel = new Set(ids); changed('select'); status(`Split into ${parts.join(' ')}: move the new notes to the melody you want`);
+      };
+      $('i-warn').append(b);
+    }
+  }
   if (!many) phonemeTiming(n);
   if (!many && n.lyric && !/^[_+.]$/.test(n.lyric)) post('/phonemize', { voice: app.track().voice, lang: app.track().lang || 'en', words: [n.lyric.replace(/-$/, '')] }).then((r) => r.json()).then((d) => { const ph = Object.values(d.phonemes || {})[0]; if (ph && $('i-auto')) $('i-auto').textContent = `automatic: ${ph.join(' ')}`; }).catch(() => {});
 }
