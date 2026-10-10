@@ -4,7 +4,7 @@ An open singing-voice synthesizer: write notes and lyrics (or bring a MIDI part)
 voice, in tune and in time. Train your own voice with the built-in recording booth, made for people who can't sing in
 tune. Runs on Windows, macOS and Linux; a VST3/CLAP/AU plugin brings it into your DAW.
 
-**Status: early development, everything below works.** Where each Synthesizer V feature stands, with the test that
+**New here? Read [the guide](docs/GUIDE.md).** **Status: early development, everything below works.** Where each Synthesizer V feature stands, with the test that
 shows it: [docs/STATUS.md](docs/STATUS.md). Decisions made along the way: [docs/DECISIONS.md](docs/DECISIONS.md).
 
 - **Editor:** piano roll with words on the notes; lyrics typed as a line; phonemes per note with draggable lengths;
