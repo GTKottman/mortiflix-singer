@@ -335,7 +335,7 @@ class Trainer:
         curve, seen = [], set()
         full = (w / 'train.log').read_text(errors='replace')[-400000:] if (w / 'train.log').exists() else ''
         part = full.rsplit('scripts/train.py', 1)[-1]
-        for m in re.finditer(r'(?:mel_loss|dur_loss)=([\d.]+)[^\r\n]*?steps=(\d+)', part):
+        for m in re.finditer(r'(?<![a-z_])(?:mel_loss|dur_loss)=([\d.]+)[^\r\n]*?steps=(\d+)', part):
             st_ = int(m.group(2))
             if st_ not in seen: seen.add(st_); curve.append([st_, float(m.group(1))])
         curve = curve[::max(1, len(curve) // 200)]
