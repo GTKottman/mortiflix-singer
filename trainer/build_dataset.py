@@ -67,7 +67,7 @@ def find_breath(y, sr, a, b):
     return None if best is None else (a + best[0] * 0.01, a + best[1] * 0.01)
 
 
-def rows_for(name, y, sr, phones, aligner, preroll=0.0):
+def rows_for(name, y, sr, phones, aligner, preroll=0.0, tune=True):
     y = y[int(preroll * sr):]
     y = resample_poly(y, SR, sr).astype(np.float32) if sr != SR else y.astype(np.float32)
     total = len(y) / SR
@@ -104,6 +104,14 @@ def rows_for(name, y, sr, phones, aligner, preroll=0.0):
         notes.append('rest' if m is None else f'{NAMES[m % 12]}{m // 12 - 1}')
     note_dur, idx = [], 0
     for g in num: note_dur.append(sum(dur[idx:idx + g])); idx += g
+    if tune:      # design 9A: each sung note centred on the note it is labelled with (vibrato and slides kept), so the
+                  # voice learns your way of singing, in tune
+        from engine.correct import correct
+        targets, t = [], 0.0
+        for nm, d in zip(notes, note_dur):
+            if nm != 'rest': targets.append((t * 1000, d * 1000, NAMES.index(nm[:-1]) + 12 * (int(nm[-1]) + 1)))
+            t += d
+        if targets: y, _ = correct(y, SR, notes=targets, amount=1.0, speed=60, vibrato=True)
     return y, {'name': name, 'ph_seq': ' '.join(seq), 'ph_dur': ' '.join(f'{d:.5f}' for d in dur), 'ph_num': ' '.join(map(str, num)),
                'note_seq': ' '.join(notes), 'note_dur': ' '.join(f'{d:.5f}' for d in note_dur)}
 
@@ -119,6 +127,7 @@ def takes_from_booth(booth_dir):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--booth'); ap.add_argument('--list'); ap.add_argument('--out', required=True); ap.add_argument('--device', default='cpu')
+    ap.add_argument('--no-tune', action='store_true', help='keep the takes exactly as sung (no centring onto their notes)')
     a = ap.parse_args()
     from align import Aligner
     aligner = Aligner(device=a.device)
@@ -130,7 +139,7 @@ def main():
         if phones is None: phones = []                                  # in-breath line
         try:
             y, sr = sf.read(t['wav'], dtype='float32', always_2d=True)
-            y2, row = rows_for(t['name'], y.mean(1), sr, phones, aligner, t['preroll'])
+            y2, row = rows_for(t['name'], y.mean(1), sr, phones, aligner, t['preroll'], tune=not a.no_tune)
             sf.write(out / 'wavs' / f"{t['name']}.wav", y2, SR, subtype='PCM_16')
             rows.append(row)
         except Exception as e:
