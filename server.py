@@ -267,6 +267,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/booth/progress': return self.send(200, self.store.progress(name))
             if path == '/train/status': return self.send(200, self.trainer.status(name))
             if path == '/downloads': return self.send(200, self.downloads.status())
+            if path == '/inbox':                       # MIDI sent from the DAW plugin
+                d = self.store.home / 'inbox'
+                files = sorted(d.glob('*.mid'), key=lambda f: -f.stat().st_mtime) if d.exists() else []
+                return self.send(200, [{'name': f.name, 'modified': f.stat().st_mtime} for f in files])
+            if path.startswith('/inbox/'):
+                f = self.store.home / 'inbox' / Path(path[len('/inbox/'):]).name
+                return self.send(200, formats.load(f.read_bytes(), f.name)) if f.suffix == '.mid' and f.exists() else self.send(404, {'error': 'not in the inbox'})
             if path == '/booth/take.wav':
                 if not ID.match(q.get('id', '')): return self.send(400, {'error': 'bad id'})
                 f = self.store.dataset(name) / 'raw' / f"{q['id']}_{int(q.get('take', 1))}.wav"

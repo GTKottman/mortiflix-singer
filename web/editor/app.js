@@ -198,6 +198,27 @@ async function openDialog() {
     row.onclick = async () => { open(await (await fetch(`${API}/projects/${encodeURIComponent(p.name)}`)).json(), p.name); $('open-dlg').close(); };
     box.append(row);
   }
+  // notes captured by the DAW plugin: into the track being edited (its words go back on with the lyrics line), or a new track
+  const inbox = await (await fetch(`${API}/inbox`)).json(), ib = $('inbox-list'); ib.textContent = '';
+  $('inbox-head').hidden = !inbox.length;
+  for (const f of inbox) {
+    const row = document.createElement('div'); row.className = 'proj';
+    const name = document.createElement('span'); name.textContent = `${f.name} · ${new Date(f.modified * 1000).toLocaleString()}`;
+    const into = document.createElement('button'); into.className = 'btn tiny'; into.textContent = 'Into this track';
+    const add = document.createElement('button'); add.className = 'btn tiny'; add.textContent = 'As a new track';
+    const take = async (asNew) => {
+      const d = await (await fetch(`${API}/inbox/${encodeURIComponent(f.name)}`)).json();
+      const ppq = app.project().ppq, scale = ppq / (d.ppq || 480);
+      const notes = d.tracks.flatMap((t) => t.notes).map((n, i) => ({ ...n, id: `in${Date.now().toString(36)}${i}`, tick: Math.round(n.tick * scale), dur: Math.round(n.dur * scale), lyric: n.lyric || 'la' }));
+      app.edit(asNew ? 'add DAW track' : 'notes from the DAW', (p) => {
+        if (asNew) { const t = structuredClone(app.trackOf(p)); t.id = `t${Date.now().toString(36)}`; t.name = 'From DAW'; t.notes = notes; t.lanes = {}; t.pitch_draw = []; t.takes = {}; p.tracks.push(t); app.trackId = t.id; }
+        else app.trackOf(p).notes = notes;
+      });
+      $('open-dlg').close(); status(`${notes.length} notes from ${f.name}: type the words in the lyrics line`);
+    };
+    into.onclick = () => take(false); add.onclick = () => take(true);
+    row.append(name, into, add); ib.append(row);
+  }
   $('open-dlg').showModal();
 }
 async function download(kind) {
