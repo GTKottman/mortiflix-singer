@@ -549,7 +549,7 @@ async function download(kind) {
 // ---- wiring ----
 async function init() {
   roll = new Roll($('roll'), app); lanes = new Lanes($('lanes'), app, roll);
-  try { const v = await (await fetch(`${API}/voices`)).json(); app.voices = v.voices; app.modes = v.modes; app.langs = v.langs; } catch { app.modes = ['Default']; }
+  try { const v = await (await fetch(`${API}/voices`)).json(); app.voices = v.voices; app.modes = v.modes; app.langs = v.langs; app.defaultVoice = v.default; } catch { app.modes = ['Default']; }
   for (const [k, s] of Object.entries(LANES)) $('lane').add(new Option(s.label, k, false, k === 'energy'));
   $('lane').onchange = (e) => { lanes.lane = e.target.value; lanes.draw(); };
   $('lane-smooth').onclick = () => lanes.smooth();
@@ -591,7 +591,7 @@ async function init() {
   };
   $('play').onclick = togglePlay; $('render').onclick = () => render('final'); $('check').onclick = check;
   $('save').onclick = save; $('open').onclick = openDialog; $('open-close').onclick = () => $('open-dlg').close();
-  $('new').onclick = () => { open(newProject('Untitled', 120)); $('open-dlg').close(); };
+  $('new').onclick = () => { open(newProject('Untitled', 120, app.defaultVoice || 'SPORE')); $('open-dlg').close(); };
   $('add-part').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return; status(`Adding ${f.name}…`);
     const r = await post(`/import?filename=${encodeURIComponent(f.name)}`, await f.arrayBuffer(), true), d = await r.json(); e.target.value = '';

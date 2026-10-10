@@ -53,3 +53,8 @@ input#name { margin: 0 10px; padding: 6px 8px; background: transparent; color: v
 .finish { border-left: 3px solid #3ccf7d; padding: 10px 14px; margin: 8px 0 14px; }
 .finish p { margin: 6px 0 10px; }
 .take-actions { display: flex; gap: 8px; margin-top: 10px; }
+.v-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.range { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.kbd { height: 22px; width: auto; }
+.kbd .k { fill: var(--ink); opacity: 0.85; } .kbd .kb { fill: var(--bg, #111); }
+.kbd .k.in { fill: var(--accent); opacity: 1; } .kbd .kb.in { fill: color-mix(in srgb, var(--accent) 60%, black); }

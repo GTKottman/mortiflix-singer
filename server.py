@@ -51,7 +51,19 @@ class Store:
 
     def voices(self):
         from engine import voices
-        return [{'name': name, **voices.info(d), 'image': (d / 'icon.png').exists()} for name, d in self.voice_dirs().items()]
+        mine = (self.home / 'voices').resolve()
+        return [{'name': name, **voices.info(d), 'image': (d / 'icon.png').exists(), 'removable': mine in d.resolve().parents}
+                for name, d in self.voice_dirs().items()]
+
+    # ---- settings (~/MortiflixSinger/config.json) ----
+    def config(self):
+        f = self.home / 'config.json'
+        return json.loads(f.read_text()) if f.exists() else {}
+
+    def set_config(self, **kw):
+        c = {**self.config(), **kw}; f = self.home / 'config.json'
+        tmp = f.with_suffix('.tmp'); tmp.write_text(json.dumps(c, indent=1)); tmp.replace(f)
+        return c
 
     # ---- projects ----
     def projects_dir(self):
@@ -385,7 +397,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/script': return self.send(200, self.store.script(name))
             if path == '/voices':
                 from engine.song import LANGS
-                return self.send(200, {'voices': self.store.voices(), 'modes': list(MODES), 'langs': LANGS})
+                vs = self.store.voices(); default = self.store.config().get('default_voice')
+                if default not in [v['name'] for v in vs]: default = next((v['name'] for v in vs if v['name'] != 'SPORE'), 'SPORE')
+                return self.send(200, {'voices': vs, 'modes': list(MODES), 'langs': LANGS, 'default': default})
             if path == '/projects':
                 return self.send(200, sorted([{'name': f.stem, 'modified': f.stat().st_mtime} for f in self.store.projects_dir().glob('*.msing')], key=lambda x: -x['modified']))
             if path.startswith('/projects/'):
@@ -527,6 +541,28 @@ class Handler(BaseHTTPRequestHandler):
                 project = json.loads(body)
                 tmp = f.with_suffix('.tmp'); tmp.write_text(json.dumps(project)); tmp.replace(f)
                 return self.send(200, {'ok': True, 'name': f.stem})
+            if path == '/voices/default':
+                return self.send(200, self.store.set_config(default_voice=json.loads(body)['name']))
+            if path == '/voices/import':                 # a voice package (.zip of a DiffSinger voice folder)
+                import zipfile
+                z = zipfile.ZipFile(io.BytesIO(body))
+                names = z.namelist()
+                if any(n.startswith('/') or '..' in Path(n).parts for n in names): return self.send(400, {'error': 'unsafe paths in the zip'})
+                cfgs = [n for n in names if n.endswith('dsconfig.yaml') and Path(n).parent.name not in ('dsdur', 'dspitch', 'dsvariance')]
+                if not cfgs: return self.send(400, {'error': 'no voice in that zip (no dsconfig.yaml)'})
+                vname = re.sub(r'[^\w.-]', '', Path(cfgs[0]).parent.name or Path(q.get('filename', 'voice.zip')).stem) or 'voice'
+                dest = self.store.home / 'voices' / vname
+                if dest.exists(): return self.send(400, {'error': f'a voice called "{vname}" is already installed'})
+                z.extractall(dest); self.store.voices_cache.pop(vname, None)
+                return self.send(200, {'name': vname})
+            if path == '/voices/delete':                 # only voices in your voices folder (never the app's own)
+                import shutil
+                vname = json.loads(body)['name']; d = self.store.voice_dirs().get(vname)
+                mine = self.store.home / 'voices'
+                if not d or mine not in d.resolve().parents: return self.send(400, {'error': 'only voices in your voices folder can be deleted'})
+                top = mine / d.resolve().relative_to(mine.resolve()).parts[0]
+                shutil.rmtree(top); self.store.voices_cache.pop(vname, None)
+                return self.send(200, {'deleted': vname})
             if path == '/autosave':
                 req = json.loads(body); d = self.store.home / 'projects' / '.autosave'; d.mkdir(parents=True, exist_ok=True)
                 key = re.sub(r'[^\w .()-]', '', req.get('name') or 'untitled')[:80] or 'untitled'

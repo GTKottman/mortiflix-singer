@@ -9,8 +9,8 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 export function newTrack(name = 'Lead', voice = 'SPORE') {
   return { id: uid(), name, voice, mode: 'Default', mute: false, solo: false, gain_db: 0, pan: 0, transpose: 0, notes: [], lanes: {}, pitch_draw: [], params: { expr: 1, correct: 1, steps: 20 } };
 }
-export function newProject(title = 'Untitled', bpm = 120) {
-  return { version: 1, ppq: PPQ, title, tempo: [{ tick: 0, bpm }], time_sig: [4, 4], tracks: [newTrack()] };
+export function newProject(title = 'Untitled', bpm = 120, voice = 'SPORE') {
+  return { version: 1, ppq: PPQ, title, tempo: [{ tick: 0, bpm }], time_sig: [4, 4], tracks: [newTrack('Lead', voice)] };
 }
 
 export class History {

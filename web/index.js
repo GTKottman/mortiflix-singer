@@ -6,6 +6,24 @@ let timer = null;
 function row(cls, ...kids) { const d = document.createElement('div'); d.className = cls; d.append(...kids); return d; }
 function text(tag, t, cls) { const e = document.createElement(tag); e.textContent = t; if (cls) e.className = cls; return e; }
 
+const post = (p, body) => fetch(`/api/singer${p}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-mortiflix': '1' }, body: JSON.stringify(body) });
+// a voice's range drawn on two octaves of keys either side of it
+function keyboard([lo, hi]) {
+  const a = midiOf(lo), b = midiOf(hi), from = 12 * Math.floor((a - 12) / 12), to = 12 * Math.ceil((b + 12) / 12);
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'), whites = [];
+  for (let m = from; m <= to; m++) if (![1, 3, 6, 8, 10].includes(m % 12)) whites.push(m);
+  const W = 7; svg.setAttribute('viewBox', `0 0 ${whites.length * W} 26`); svg.setAttribute('class', 'kbd'); svg.setAttribute('aria-label', `range ${lo} to ${hi}`);
+  whites.forEach((m, i) => { const r = document.createElementNS(ns, 'rect'); r.setAttribute('x', i * W); r.setAttribute('y', 0); r.setAttribute('width', W - 1); r.setAttribute('height', 26); r.setAttribute('class', m >= a && m <= b ? 'k in' : 'k'); svg.append(r); });
+  whites.forEach((m, i) => { if ([0, 2, 5, 7, 9].includes(m % 12) && m + 1 <= to) { const r = document.createElementNS(ns, 'rect'); r.setAttribute('x', i * W + W * 0.65); r.setAttribute('y', 0); r.setAttribute('width', W * 0.7); r.setAttribute('height', 15); r.setAttribute('class', m + 1 >= a && m + 1 <= b ? 'kb in' : 'kb'); svg.append(r); } });
+  const cap = document.createElement('span'); cap.className = 'muted'; cap.textContent = `${lo} to ${hi}`;
+  const wrap = document.createElement('div'); wrap.className = 'range'; wrap.append(svg, cap); return wrap;
+}
+$('voice-zip').onchange = async () => {
+  const f = $('voice-zip').files[0]; if (!f) return; $('voice-state').textContent = `Importing ${f.name}…`;
+  const r = await fetch(`/api/singer/voices/import?filename=${encodeURIComponent(f.name)}`, { method: 'POST', headers: { 'x-mortiflix': '1' }, body: await f.arrayBuffer() });
+  const d = await r.json(); $('voice-state').textContent = r.ok ? `Installed "${d.name}"` : d.error; refresh();
+};
+
 // a short phrase in a voice, placed in its range (or around middle C)
 const NOTE = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
 const midiOf = (n) => NOTE[n.slice(0, -1)] + 12 * (Number(n.slice(-1)) + 1);
@@ -46,9 +64,28 @@ async function refresh() {
     box.append(row('v-row', left, right));
   }
   const mine = vs.voices.filter((v) => !dl.some((d) => d.id === v.name));
-  for (const v of mine) box.append(row('v-row', row('v-name', text('b', v.name), text('span', v.license || 'Your voice', 'muted')), hear(v)));
+  for (const v of mine) {
+    const left = row('v-name', text('b', v.name), text('span', v.license || 'Your voice', 'muted'));
+    if (v.range) left.append(keyboard(v.range));
+    const right = row('v-actions', hear(v));
+    if (vs.default === v.name) right.append(text('span', 'Default', 'ok'));
+    else { const d = text('button', 'Make default', 'btn'); d.onclick = async () => { await post('/voices/default', { name: v.name }); refresh(); }; right.append(d); }
+    if (v.removable) {
+      const del = text('button', 'Delete', 'btn');
+      del.onclick = async () => {                     // two clicks, no pop-up: the first arms it
+        if (del.dataset.armed !== '1') { del.dataset.armed = '1'; del.textContent = 'Delete it for good?'; return; }
+        await post('/voices/delete', { name: v.name }); refresh();
+      };
+      right.append(del);
+    }
+    box.append(row('v-row', left, right));
+  }
   for (const v of vs.voices.filter((x) => dl.some((d) => d.id === x.name))) {         // downloaded voices can be heard too
-    const r = [...box.children].find((el) => el.querySelector('b')?.textContent.startsWith(v.name)); r?.lastChild.prepend(hear(v), ' ');
+    const r = [...box.children].find((el) => el.querySelector('b')?.textContent.startsWith(v.name)); if (!r) continue;
+    r.lastChild.prepend(hear(v), ' ');
+    if (v.range) r.firstChild.append(keyboard(v.range));
+    if (vs.default === v.name) r.lastChild.append(' ', text('span', 'Default', 'ok'));
+    else { const d = text('button', 'Make default', 'btn'); d.onclick = async () => { await post('/voices/default', { name: v.name }); refresh(); }; r.lastChild.append(' ', d); }
   }
   const busy = dl.some((d) => d.state === 'downloading' || d.state === 'unpacking');
   clearTimeout(timer); if (busy) timer = setTimeout(refresh, 1000);
