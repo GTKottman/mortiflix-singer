@@ -112,6 +112,7 @@ def check_text(p, track_id=None):
         for w in res['words']:
             if not w['ok']: lines.append(f'  unclear "{w["word"]}" (notes {",".join(w["notes"])}), heard: "{w["heard"]}"')
         for t in res['tuning']: lines.append(f'  note {t["note"]}: {t["cents"]:+d} cents')
+        for t in res.get('timing', []): lines.append(f'  note {t["note"]}: vowel {t["ms"]:+d} ms from the beat')
     return '\n'.join(lines)
 
 

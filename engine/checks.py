@@ -40,8 +40,16 @@ def words_of_track(project, track):
 def check_track(project, track, phrases, diction=True, match=0.65):
     tm = TempoMap(project)
     by_id = {n['id']: n for n in track['notes']}
-    tuning, words_out = [], []
+    tuning, words_out, timing = [], [], []
+    VOW = {'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ay', 'eh', 'er', 'ey', 'ih', 'iy', 'ow', 'oy', 'uh', 'uw'}
     for ph in phrases:
+        # timing: the vowel of each sung note should start on the note (the beat is where a singer puts the vowel)
+        vstarts = [s0 for q, s0, _ in ph.get('phones', []) if q in VOW]
+        for nid in ph.get('note_ids', []):
+            n = by_id.get(nid)
+            if not n or (n.get('lyric') or '') in ('.', '_', '+', 'br') or not vstarts: continue
+            a = tm.to_ms(n['tick']); off = min(vstarts, key=lambda v: abs(v - a)) - a
+            if abs(off) > 40: timing.append({'note': nid, 'ms': round(off)})
         curve = np.array(ph.get('pitch') or [[0, 0]], float)
         for nid in ph.get('note_ids', []):
             n = by_id.get(nid)
@@ -63,5 +71,5 @@ def check_track(project, track, phrases, diction=True, match=0.65):
         for w, nids in want:
             L = len(norm(w)); score = float(hit[k:k + L].mean()) if L else 1.0; k += L
             words_out.append({'word': w, 'notes': nids, 'ok': score >= match, 'score': round(score, 2), 'heard': heard})
-    return {'tuning': tuning, 'words': words_out,
-            'summary': {'words': len(words_out), 'unclear': sum(not w['ok'] for w in words_out), 'off_notes': len(tuning)}}
+    return {'tuning': tuning, 'words': words_out, 'timing': timing,
+            'summary': {'words': len(words_out), 'unclear': sum(not w['ok'] for w in words_out), 'off_notes': len(tuning), 'late_notes': len(timing)}}

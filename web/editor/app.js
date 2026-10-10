@@ -117,12 +117,13 @@ async function check() {
   box.hidden = false; box.textContent = '';
   const h = document.createElement('div'); h.className = 'pane-head'; h.textContent = 'Checks'; box.append(h);
   const sum = document.createElement('p'); sum.className = 'muted';
-  sum.textContent = `${res.summary.words - res.summary.unclear} of ${res.summary.words} words clear · ${res.summary.off_notes} note${res.summary.off_notes === 1 ? '' : 's'} more than 20 cents off`;
+  sum.textContent = `${res.summary.words - res.summary.unclear} of ${res.summary.words} words clear · ${res.summary.off_notes} note${res.summary.off_notes === 1 ? '' : 's'} more than 20 cents off · ${res.summary.late_notes || 0} off the beat`;
   box.append(sum);
   const item = (text, ids, bad) => { const el = document.createElement('div'); el.className = `chk${bad ? ' bad' : ''}`; el.textContent = text; el.onclick = () => { app.sel = new Set(ids); const n = app.track().notes.find((m) => m.id === ids[0]); if (n) roll.scrollTo(Math.max(0, n.tick - app.project().ppq * 2)); changed('select'); }; box.append(el); };
   for (const w of res.words.filter((x) => !x.ok)) item(`"${w.word}" unclear: heard "${w.heard}"`, w.notes, true);
   for (const t of res.tuning) item(`${t.cents > 0 ? '+' : ''}${t.cents} cents`, [t.note], Math.abs(t.cents) > 50);
-  if (!res.words.some((x) => !x.ok) && !res.tuning.length) item('Every word clear, every note in tune.', [], false);
+  for (const t of res.timing || []) item(`vowel ${t.ms > 0 ? `${t.ms} ms late` : `${-t.ms} ms early`}`, [t.note], Math.abs(t.ms) > 80);
+  if (!res.words.some((x) => !x.ok) && !res.tuning.length && !(res.timing || []).length) item('Every word clear, every note in tune and on time.', [], false);
   status('Checked');
 }
 
