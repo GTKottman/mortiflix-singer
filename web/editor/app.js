@@ -552,6 +552,7 @@ async function init() {
   try { const v = await (await fetch(`${API}/voices`)).json(); app.voices = v.voices; app.modes = v.modes; app.langs = v.langs; } catch { app.modes = ['Default']; }
   for (const [k, s] of Object.entries(LANES)) $('lane').add(new Option(s.label, k, false, k === 'energy'));
   $('lane').onchange = (e) => { lanes.lane = e.target.value; lanes.draw(); };
+  $('lane-smooth').onclick = () => lanes.smooth();
   let saved = store.get('singer-autosave', null);
   if (!saved) {             // this browser kept nothing (cleared, another computer): recover the service's copy
     try { const a = await (await fetch(`${API}/autosave`)).json(); if (a.project) { saved = a; setTimeout(() => status('Recovered your last unsaved work'), 500); } } catch {}

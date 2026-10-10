@@ -21,6 +21,20 @@ export class Lanes {
     this.drag.pts.push([tick, Math.round(Math.max(s.min, Math.min(s.max, this.V(y))) * 100) / 100]);
     this.draw();
   }
+  // smooth the lane's curve (over the selected notes' span, or all of it): a moving average over ~1/8 note
+  smooth() {
+    const lane = this.lane, t = this.app.track(), pts = [...((t.lanes || {})[lane] || [])].sort((a, b) => a[0] - b[0]);
+    if (pts.length < 3) return;
+    const sel = t.notes.filter((n) => this.app.sel.has(n.id));
+    const lo = sel.length ? Math.min(...sel.map((n) => n.tick)) : -Infinity, hi = sel.length ? Math.max(...sel.map((n) => n.tick + n.dur)) : Infinity;
+    const win = this.app.project().ppq / 4;
+    const out = pts.map(([tk, v]) => {
+      if (tk < lo || tk > hi) return [tk, v];
+      const near = pts.filter((q) => Math.abs(q[0] - tk) <= win);
+      return [tk, Math.round(near.reduce((a, q) => a + q[1], 0) / near.length * 100) / 100];
+    });
+    this.app.edit(`smooth ${lane}`, (p) => { const tr = this.app.trackOf(p); tr.lanes = { ...(tr.lanes || {}), [lane]: out }; });
+  }
   commit() {
     const d = this.drag; this.drag = null; if (!d || !d.pts.length) return;
     const lo = Math.min(...d.pts.map((p) => p[0])), hi = Math.max(...d.pts.map((p) => p[0]));
