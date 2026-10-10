@@ -586,6 +586,20 @@ async function init() {
   $('play').onclick = togglePlay; $('render').onclick = () => render('final'); $('check').onclick = check;
   $('save').onclick = save; $('open').onclick = openDialog; $('open-close').onclick = () => $('open-dlg').close();
   $('new').onclick = () => { open(newProject('Untitled', 120)); $('open-dlg').close(); };
+  $('add-part').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return; status(`Adding ${f.name}…`);
+    const r = await post(`/import?filename=${encodeURIComponent(f.name)}`, await f.arrayBuffer(), true), d = await r.json(); e.target.value = '';
+    if (!r.ok) { status(`Couldn't add it: ${d.error}`); return; }
+    const scale = app.project().ppq / (d.ppq || 480), added = [];
+    app.edit('add part', (p) => {
+      for (const t of d.tracks.filter((x) => x.notes.length)) {
+        const id = `t${uid()}`; added.push(id);
+        p.tracks.push({ ...t, id, name: `${t.name || f.name.replace(/\.[^.]+$/, '')}`, voice: app.track().voice, notes: t.notes.map((n) => ({ ...n, id: uid(), tick: Math.round(n.tick * scale), dur: Math.round(n.dur * scale) })) });
+      }
+    });
+    if (added.length) app.trackId = added[0];
+    $('open-dlg').close(); changed('select'); status(`Added ${added.length} track${added.length === 1 ? '' : 's'} from ${f.name}`);
+  };
   $('import').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return; status(`Importing ${f.name}…`);
     const r = await post(`/import?filename=${encodeURIComponent(f.name)}`, await f.arrayBuffer(), true);
