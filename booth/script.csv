@@ -1,0 +1,583 @@
+id,set,text,style,syllables,notes
+A0001,A,ah (hold),,1,36
+A0002,A,ah (hold),,1,37
+A0003,A,ah (hold),,1,38
+A0004,A,ah (hold),,1,39
+A0005,A,ah (hold),,1,40
+A0006,A,ah (hold),,1,41
+A0007,A,ah (hold),,1,42
+A0008,A,ah (hold),,1,43
+A0009,A,ah (hold),,1,44
+A0010,A,ah (hold),,1,45
+A0011,A,ah (hold),,1,46
+A0012,A,ah (hold),,1,47
+A0013,A,ah (hold),,1,48
+A0014,A,ah (hold),,1,49
+A0015,A,ah (hold),,1,50
+A0016,A,ah (hold),,1,51
+A0017,A,ah (hold),,1,52
+A0018,A,ee (hold),,1,36
+A0019,A,ee (hold),,1,37
+A0020,A,ee (hold),,1,38
+A0021,A,ee (hold),,1,39
+A0022,A,ee (hold),,1,40
+A0023,A,ee (hold),,1,41
+A0024,A,ee (hold),,1,42
+A0025,A,ee (hold),,1,43
+A0026,A,ee (hold),,1,44
+A0027,A,ee (hold),,1,45
+A0028,A,ee (hold),,1,46
+A0029,A,ee (hold),,1,47
+A0030,A,ee (hold),,1,48
+A0031,A,ee (hold),,1,49
+A0032,A,ee (hold),,1,50
+A0033,A,ee (hold),,1,51
+A0034,A,ee (hold),,1,52
+A0035,A,oo (hold),,1,36
+A0036,A,oo (hold),,1,37
+A0037,A,oo (hold),,1,38
+A0038,A,oo (hold),,1,39
+A0039,A,oo (hold),,1,40
+A0040,A,oo (hold),,1,41
+A0041,A,oo (hold),,1,42
+A0042,A,oo (hold),,1,43
+A0043,A,oo (hold),,1,44
+A0044,A,oo (hold),,1,45
+A0045,A,oo (hold),,1,46
+A0046,A,oo (hold),,1,47
+A0047,A,oo (hold),,1,48
+A0048,A,oo (hold),,1,49
+A0049,A,oo (hold),,1,50
+A0050,A,oo (hold),,1,51
+A0051,A,oo (hold),,1,52
+A0052,A,eh (hold),,1,36
+A0053,A,eh (hold),,1,37
+A0054,A,eh (hold),,1,38
+A0055,A,eh (hold),,1,39
+A0056,A,eh (hold),,1,40
+A0057,A,eh (hold),,1,41
+A0058,A,eh (hold),,1,42
+A0059,A,eh (hold),,1,43
+A0060,A,eh (hold),,1,44
+A0061,A,eh (hold),,1,45
+A0062,A,eh (hold),,1,46
+A0063,A,eh (hold),,1,47
+A0064,A,eh (hold),,1,48
+A0065,A,eh (hold),,1,49
+A0066,A,eh (hold),,1,50
+A0067,A,eh (hold),,1,51
+A0068,A,eh (hold),,1,52
+A0069,A,oh (hold),,1,36
+A0070,A,oh (hold),,1,37
+A0071,A,oh (hold),,1,38
+A0072,A,oh (hold),,1,39
+A0073,A,oh (hold),,1,40
+A0074,A,oh (hold),,1,41
+A0075,A,oh (hold),,1,42
+A0076,A,oh (hold),,1,43
+A0077,A,oh (hold),,1,44
+A0078,A,oh (hold),,1,45
+A0079,A,oh (hold),,1,46
+A0080,A,oh (hold),,1,47
+A0081,A,oh (hold),,1,48
+A0082,A,oh (hold),,1,49
+A0083,A,oh (hold),,1,50
+A0084,A,oh (hold),,1,51
+A0085,A,oh (hold),,1,52
+A0086,A,a (cat) (hold),,1,36
+A0087,A,a (cat) (hold),,1,37
+A0088,A,a (cat) (hold),,1,38
+A0089,A,a (cat) (hold),,1,39
+A0090,A,a (cat) (hold),,1,40
+A0091,A,a (cat) (hold),,1,41
+A0092,A,a (cat) (hold),,1,42
+A0093,A,a (cat) (hold),,1,43
+A0094,A,a (cat) (hold),,1,44
+A0095,A,a (cat) (hold),,1,45
+A0096,A,a (cat) (hold),,1,46
+A0097,A,a (cat) (hold),,1,47
+A0098,A,a (cat) (hold),,1,48
+A0099,A,a (cat) (hold),,1,49
+A0100,A,a (cat) (hold),,1,50
+A0101,A,a (cat) (hold),,1,51
+A0102,A,a (cat) (hold),,1,52
+A0103,A,uh (hold),,1,36
+A0104,A,uh (hold),,1,37
+A0105,A,uh (hold),,1,38
+A0106,A,uh (hold),,1,39
+A0107,A,uh (hold),,1,40
+A0108,A,uh (hold),,1,41
+A0109,A,uh (hold),,1,42
+A0110,A,uh (hold),,1,43
+A0111,A,uh (hold),,1,44
+A0112,A,uh (hold),,1,45
+A0113,A,uh (hold),,1,46
+A0114,A,uh (hold),,1,47
+A0115,A,uh (hold),,1,48
+A0116,A,uh (hold),,1,49
+A0117,A,uh (hold),,1,50
+A0118,A,uh (hold),,1,51
+A0119,A,uh (hold),,1,52
+A0120,A,eye (hold),,1,36
+A0121,A,eye (hold),,1,37
+A0122,A,eye (hold),,1,38
+A0123,A,eye (hold),,1,39
+A0124,A,eye (hold),,1,40
+A0125,A,eye (hold),,1,41
+A0126,A,eye (hold),,1,42
+A0127,A,eye (hold),,1,43
+A0128,A,eye (hold),,1,44
+A0129,A,eye (hold),,1,45
+A0130,A,eye (hold),,1,46
+A0131,A,eye (hold),,1,47
+A0132,A,eye (hold),,1,48
+A0133,A,eye (hold),,1,49
+A0134,A,eye (hold),,1,50
+A0135,A,eye (hold),,1,51
+A0136,A,eye (hold),,1,52
+B0137,B,la la la la la la la la,,8,40 42 44 45 47 49 51 52
+B0138,B,la la la la la la la la,,8,52 51 49 47 45 44 42 40
+B0139,B,la la la la la la la la,,8,40 42 44 45 47 49 51 52
+B0140,B,la la la la la la la la,,8,52 51 49 47 45 44 42 40
+B0141,B,na na na na na na na na,,8,40 42 44 45 47 49 51 52
+B0142,B,na na na na na na na na,,8,52 51 49 47 45 44 42 40
+B0143,B,na na na na na na na na,,8,40 42 44 45 47 49 51 52
+B0144,B,na na na na na na na na,,8,52 51 49 47 45 44 42 40
+B0145,B,ma ma ma ma ma ma ma ma,,8,40 42 44 45 47 49 51 52
+B0146,B,ma ma ma ma ma ma ma ma,,8,52 51 49 47 45 44 42 40
+B0147,B,ma ma ma ma ma ma ma ma,,8,40 42 44 45 47 49 51 52
+B0148,B,ma ma ma ma ma ma ma ma,,8,52 51 49 47 45 44 42 40
+B0149,B,da da da da da da da da,,8,40 42 44 45 47 49 51 52
+B0150,B,da da da da da da da da,,8,52 51 49 47 45 44 42 40
+B0151,B,da da da da da da da da,,8,40 42 44 45 47 49 51 52
+B0152,B,da da da da da da da da,,8,52 51 49 47 45 44 42 40
+C0153,C,I noticed blood spouting from Kerfoot's left hand,,11,43 42 43 47 45 43 40 42 40 40 42
+C0154,C,Something that Whittemore had not yet said thrilled him,,11,45 47 45 42 43 42 40 43 47 48 47
+C0155,C,and snorting steamboats challenged the wilderness,,11,45 45 47 43 47 45 43 45 47 50 48
+C0156,C,The wolf-dog thrust his gaunt muzzle toward him,,11,45 47 47 47 45 42 40 43 40 38 36
+C0157,C,Whiz-zip-bang. Lop-Ear screamed with sudden anguish,,11,40 40 38 40 42 40 43 42 38 40 42
+C0158,C,Poor little Crooked-Leg was terribly scared,,11,47 50 48 47 50 52 52 52 52 52 48
+C0159,C,The questions may have come vaguely in his mind,,11,45 43 42 38 38 36 40 38 40 42 38
+C0160,C,His slim fingers closed like steel about Philip's,,11,47 48 48 52 52 50 48 47 45 43 42
+C0161,C,Miss Brodie's smile was slightly sarcastic,,10,45 45 47 48 48 47 50 47 48 50
+C0162,C,fearing that Jacques might see what was in her face,,11,47 48 47 45 43 42 43 42 40 40 42
+C0163,C,What do you mean by this outrageous conduct,,11,45 47 45 48 48 48 50 50 52 50 48
+C0164,C,Gregson shoved back his chair and rose to his feet,,11,47 47 48 45 48 47 48 47 45 47 47
+C0165,C,Then he stepped back with a low cry of pleasure,,11,45 47 43 45 45 48 47 48 45 42 38
+C0166,C,He drew in a deep breath as he looked at them,,11,40 40 42 42 40 43 45 45 47 43 47
+C0167,C,Hans hurled himself upon the prostrate man,,10,42 43 45 47 43 42 43 47 47 43
+C0168,C,to be altered by adjectives and adverbs,,11,42 38 42 43 45 47 50 48 52 50 48
+C0169,C,Jeanne and Pierre both gazed toward the great rock,,11,42 40 36 40 43 42 43 47 45 47 43
+C0170,C,For two hours not a word passed between them,,11,45 47 43 42 40 43 43 45 48 50 47
+C0171,C,You were looking squeamish this afternoon,,10,42 43 45 48 47 48 47 47 50 52
+C0172,C,What part of the United States is your home,,11,45 47 48 47 43 42 43 43 45 47 48
+C0173,C,And yet if she came he had no words to say,,11,45 43 45 47 47 45 48 47 48 47 45
+C0174,C,and in that time Thorpe left camp three times,,9,47 45 47 48 47 50 47 45 43
+C0175,C,the way lay along alcohol-drenched roads,,10,42 45 45 43 43 45 47 48 52 50
+C0176,C,You don't catch me at any such foolishness,,11,43 43 42 38 36 36 36 36 36 38 36
+C0177,C,The sharp voice of Wolf Larsen aroused me,,10,45 43 43 42 45 43 40 40 38 40
+C0178,C,But here amongst ourselves let us speak out,,11,43 45 43 42 43 47 45 43 42 42 40
+C0179,C,Pebbles and dirt flew along with hair and fur,,11,43 40 38 38 36 36 36 40 42 43 42
+C0180,C,This time he did not yap for mercy,,9,42 42 40 36 40 43 47 45 47
+C0181,C,I hope I'll go on seeing them forever,,11,42 40 38 42 38 40 36 38 42 42 43
+C0182,C,A strange fire burned in his eyes when Thorpe turned,,11,43 43 43 45 45 43 42 42 40 40 38
+C0183,C,The farmer works the soil and produces grain,,11,42 42 38 36 36 38 40 38 40 38 38
+C0184,C,I have long noted your thirst unquenchable,,11,47 48 52 50 48 45 42 45 47 50 52
+C0185,C,She'd make a good wife for the cashier,,9,45 42 43 45 43 47 45 48 50
+C0186,C,He made sure that the magazine was loaded,,11,47 48 47 50 52 52 52 48 47 43 43
+C0187,C,And I hope you've got plenty of chain out,,10,40 38 40 43 47 45 43 45 43 43
+C0188,C,You live on an income which your father earned,,11,47 45 48 47 50 52 52 52 52 52 52
+C0189,C,Swiftly his eyes measured the situation,,11,45 43 40 42 43 43 45 43 42 40 42
+C0190,C,And how would we ever find ourselves,,10,45 47 48 47 45 43 45 48 50 52
+C0191,C,Take my advice and accept the vacation,,11,42 42 38 38 36 38 36 36 40 38 42
+C0192,C,If you only could know how I thank you,,10,40 40 36 36 36 36 36 36 40 40
+C0193,C,I am going to surprise father,,9,42 38 36 40 42 43 45 43 47
+C0194,C,His newborn cunning gave him poise and control,,11,42 43 42 40 42 43 43 43 43 43 47
+C0195,C,I tried to read George Moore last night,,8,42 40 42 38 40 42 40 42
+C0196,C,I'm almost homesick for it already,,10,42 40 40 42 40 40 38 38 38 36
+C0197,C,They robbed me a few years later,,8,43 40 38 40 40 42 42 40
+C0198,C,His freshly caught furs he flung to the floor,,10,47 48 50 50 47 43 40 38 36 36
+C0199,C,A bush chief had died a natural death,,10,42 38 36 36 36 36 38 42 40 36
+C0200,C,You used to joyride like the very devil,,11,42 45 45 47 50 52 52 48 47 45 43
+C0201,C,I think it's much nicer to quarrel,,9,43 43 47 43 42 43 45 43 45
+C0202,C,The Portuguese boy passed the Hawaiian,,10,45 48 52 52 50 50 48 52 52 52
+C0203,C,Stand off butcher and baker and all the rest,,11,42 38 38 42 38 40 38 36 38 36 36
+C0204,C,life-conserving female of the species,,10,42 43 45 48 47 48 47 48 47 45
+C0205,C,A shadow was creeping over Pierre's eyes,,11,47 47 50 48 47 45 45 43 42 45 47
+C0206,C,clucking moose-birds were most annoying,,9,42 40 40 38 38 40 38 40 36
+C0207,C,His voice was passionately rebellious,,10,47 48 47 47 48 50 48 48 48 52
+C0208,C,We fished sharks on Niihau together,,9,45 43 40 38 38 36 40 38 40
+C0209,C,I'll give a thousand if you produce her,,10,43 43 42 45 42 43 40 43 42 40
+C0210,C,His partners had starved and died on the Stewart,,11,42 43 42 40 36 40 40 36 40 36 36
+C0211,C,His blood grew hot with rage at the thought,,9,42 43 42 45 43 45 47 48 48
+C0212,C,searching the shadows of both shores,,8,42 43 45 48 50 48 47 45
+C0213,C,he was paid one case of tobacco per head,,11,43 45 45 45 45 48 48 47 48 47 45
+C0214,C,Think of investing in such an adventure,,11,42 43 45 43 47 43 42 45 47 45 43
+C0215,C,They are not regular oyster pirates,,10,42 40 42 38 40 38 36 36 38 36
+C0216,C,Thus was momentum gained in the Younger World,,11,43 43 42 40 38 38 36 38 42 45 43
+C0217,C,And the Edinburgh Evening News says,,10,40 42 43 45 43 45 43 40 42 45
+C0218,C,and the log crashed down to break his back,,9,45 43 43 47 48 48 50 52 50
+C0219,C,A scarlet loincloth completed his costume,,11,42 43 42 38 36 38 40 40 42 38 36
+C0220,C,as Dante might have worshiped Beatrice,,10,43 43 42 43 42 40 38 40 42 38
+C0221,C,Low bush whipped him in the face and left no sting,,11,42 45 47 50 47 45 48 45 42 40 42
+C0222,C,The ringing of the big bell aroused him,,10,43 42 40 38 42 38 36 36 38 36
+C0223,C,Joan looked triumphantly at Sheldon,,9,45 43 45 47 50 50 52 52 52
+C0224,C,Here the explosion of mirth drowned him out,,10,40 42 38 36 38 36 36 36 38 40
+C0225,C,by which he makes his knowledge articulate,,11,45 47 50 48 47 50 48 47 50 50 47
+C0226,C,Tudor surveyed him with withering disgust,,11,45 45 42 38 36 40 36 40 38 36 36
+C0227,C,Tomorrow or next day it might he gone,,10,42 43 43 45 47 45 45 45 43 42
+C0228,C,Soaked in seawater they offset the heat rays,,11,42 38 40 38 42 38 38 36 38 40 42
+C0229,C,And after the bath a shave would not be bad,,11,43 40 38 40 38 36 38 42 40 40 36
+C0230,C,His outstretched arm dropped to his side,,8,45 47 47 45 43 45 43 45
+C0231,C,We are consumed in our own flesh-pots,,10,42 43 43 45 43 45 47 47 48 47
+C0232,C,What Pascal glimpsed with the vision of a seer,,11,45 43 42 45 43 40 43 40 40 42 38
+C0233,C,Sheldon glanced at the thermometer,,9,42 40 42 40 42 40 38 36 36
+C0234,C,You read the quotations in today's paper,,11,40 42 40 42 42 40 40 43 42 45 42
+C0235,C,Now animals do not like mockery,,10,42 42 40 43 42 40 40 43 47 43
+C0236,C,The awe of man rushed over him again,,10,45 43 42 42 40 36 40 38 36 40
+C0237,C,You're going in for grab sharing,,8,40 42 45 43 40 38 40 43
+C0238,C,especially so for an Asiatic,,10,42 40 38 36 36 38 36 36 36 40
+C0239,C,There is another virtue in these bulkheads,,11,40 42 38 38 36 36 36 38 42 40 36
+C0240,C,Everything was working smoothly,,8,40 36 40 43 43 45 43 42
+C0241,C,There followed a roar that shook the earth,,9,43 42 42 42 42 40 43 40 40
+C0242,C,Outsiders are allowed five minute speeches,,11,45 42 40 40 42 45 43 45 47 45 48
+C0243,C,They had been on the same lay as ourselves,,11,43 45 43 45 48 45 42 40 42 43 43
+C0244,C,The next thing to watch out for is bed sores,,10,45 42 45 47 43 42 45 45 45 43
+C0245,C,and faced Gregson across the table,,9,43 45 47 48 47 48 52 50 52
+C0246,C,We'll have to watch our chances,,8,42 43 45 48 45 45 47 45
+C0247,C,with little puffy bags under them,,9,43 40 43 40 36 38 36 40 38
+C0248,C,Death had come with terrible suddenness,,10,43 47 45 43 47 45 43 45 43 42
+C0249,C,I'm sure going along with you all,,9,42 43 45 43 42 43 40 36 38
+C0250,C,In partnership with Daylight,,7,42 45 43 40 42 45 47
+C0251,C,is just about thirty per week,,8,45 47 47 47 50 52 50 52
+C0252,C,while Jones sat with the chauffeur,,7,45 43 45 42 43 45 48
+C0253,C,and the illusion was gone,,7,42 40 40 42 40 38 42
+C0254,C,shrinking back with the baby in her arms,,10,47 48 50 48 52 48 45 45 47 47
+C0255,C,Such is my passage engaged on the steamer,,11,43 43 45 47 45 43 42 43 45 48 52
+C0256,C,From the source of light a harsh voice said,,9,42 40 38 36 36 36 36 40 38
+C0257,C,The life there was healthful and athletic,,10,40 42 45 43 40 36 38 38 36 36
+C0258,C,In a flash Philip followed its direction,,11,40 43 40 40 40 38 42 42 42 43 45
+C0259,C,Pierre obeys me when we are together,,11,40 38 40 36 36 40 42 40 43 42 40
+C0260,C,poisonous atmosphere in the pent cabin,,11,40 38 36 38 36 38 36 38 42 43 40
+C0261,C,One by one the boys were captured,,8,43 45 43 40 38 40 42 43
+C0262,C,Now our figuring was all right,,9,45 43 45 47 43 47 45 43 40
+C0263,C,The Portuguese boy crawled nearer and nearer,,11,45 48 47 45 48 48 52 52 50 48 50
+C0264,C,which is the native for taboo,,8,47 45 45 43 40 43 43 43
+C0265,C,Three oilers and a fourth engineer,,9,43 45 43 40 40 40 40 36 38
+C0266,C,And Tom King patiently endured,,8,43 42 42 45 45 43 45 48
+C0267,C,Without them he could not run his empire,,11,43 42 40 38 36 36 38 40 36 40 38
+C0268,C,words shaped vainly on his lips,,7,40 38 40 36 36 40 38
+C0269,C,To these he gave castor oil,,7,42 43 42 42 40 42 43
+C0270,C,What's that grub-thief got to do with it,,9,45 48 50 52 50 48 52 52 52
+C0271,C,We got few vegetables and fruits,,8,42 45 43 45 43 42 45 48
+C0272,C,and more geese and ducks flew overhead,,9,42 42 45 47 45 47 50 52 50
+C0273,C,He loved to play Chinese lottery,,9,47 47 45 48 47 45 43 42 45
+C0274,C,I was still weak from my prolonged immersion,,11,43 43 45 48 50 52 52 50 48 45 43
+C0275,C,And each year something happened,,7,43 42 43 47 50 47 43
+C0276,C,they were beyond all jurisdiction,,9,42 43 45 48 50 52 48 47 43
+C0277,C,You were making them talk shop,,7,42 43 40 36 36 36 36
+C0278,C,The nightglow was treacherous to shoot by,,10,45 43 45 47 48 45 47 45 42 38
+C0279,C,For a full minute he crouched and listened,,10,40 42 43 45 43 45 42 42 38 36
+C0280,C,A maddening joy pounded in his brain,,10,42 40 38 36 40 40 40 42 43 43
+C0281,C,so almost impossible to believe,,10,47 48 45 43 42 42 43 42 42 42
+C0282,C,a most convincing hypothesis,,9,45 43 45 42 43 40 42 40 40
+C0283,C,They had no fixed values,,6,42 40 42 42 38 42
+C0284,C,It was like the beating of hoofs,,8,42 45 43 43 43 45 43 47
+C0285,C,Earth and gravel seemed to fill the pan,,9,42 45 43 42 40 40 40 38 40
+C0286,C,Corry Hutchinson had married Mabel Holmes,,11,43 40 38 36 40 43 43 45 47 48 45
+C0287,C,King took every advantage he knew,,10,45 43 45 43 40 38 42 40 42 45
+C0288,C,can your boy go along with Jesse,,9,42 43 40 38 42 40 42 42 42
+C0289,C,He would destroy all things that are fixed,,9,47 45 43 47 48 50 48 50 47
+C0290,C,How does your wager look now,,7,43 45 42 42 42 38 36
+C0291,C,There was no answer from the other side,,10,45 43 42 43 42 45 42 45 43 45
+C0292,C,I know that you are in charge there,,8,42 40 38 40 40 42 40 38
+C0293,C,I'll see to poor Hughie,,6,45 43 40 36 38 38
+C0294,C,they are discouraged vagabonds,,8,45 43 43 45 43 42 38 36
+C0295,C,or to enjoy pleasure,,6,40 40 38 36 36 38
+C0296,C,His reward should have been peace and repose,,10,42 45 48 50 52 48 52 50 52 48
+C0297,C,her eyes shining with sudden fear,,8,42 38 42 42 40 38 40 36
+C0298,C,you would not keep the truth from me,,8,45 47 48 47 45 45 48 47
+C0299,C,Now these things had been struck dead within him,,10,45 47 45 47 43 45 43 42 40 38
+C0300,C,The date was nearly eighteen years old,,9,42 45 48 47 47 45 42 43 47
+C0301,C,He says he bought him of Jacques Le Beau,,9,42 42 40 42 43 45 47 43 43
+C0302,C,I saw it when she rolled,,6,42 45 47 48 52 52
+C0303,C,I graduated last of my class,,9,45 42 43 45 43 45 43 40 40
+C0304,C,Broken-Tooth yelled with fright and pain,,8,40 42 40 40 42 40 43 43
+C0305,C,He'll knock you off a few sticks in no time,,10,42 42 43 42 43 47 45 43 42 43
+C0306,C,There's too much of the schoolboy in me,,9,45 43 43 42 43 42 43 42 40
+C0307,C,the picture was only a resemblance,,10,45 47 47 45 47 48 50 48 50 48
+C0308,C,All this day Gregson remained in the cabin,,11,40 42 43 47 48 47 50 52 50 52 52
+C0309,C,and cursed himself at this fresh break,,8,42 40 42 43 45 47 48 47
+C0310,C,Nobody knows how the natives got them,,10,43 43 42 42 40 36 36 36 38 36
+C0311,C,A month in Australia would finish me,,10,47 50 48 50 50 52 52 50 52 50
+C0312,C,Let us talk it over and find a way out,,11,45 42 43 45 43 45 47 48 47 48 45
+C0313,C,It was a superb picture,,7,45 47 48 50 52 52 52
+C0314,C,You fired me out of your house,,8,42 43 43 40 38 40 42 43
+C0315,C,It was put together in a casual,,11,42 43 42 40 38 38 40 42 42 43 40
+C0316,C,Nor was Elam Harnish an exception,,10,42 45 43 45 43 42 43 43 45 47
+C0317,C,who's this bookkeeper,,5,42 42 42 42 40
+C0318,C,Unlike Joshua,,5,47 47 50 50 47
+C0319,C,the Cape Verde Islands are raised,,8,40 42 40 42 40 42 40 38
+C0320,C,Now you're coming down to business,,8,43 47 50 52 50 50 52 48
+C0321,C,his ears strained to catch the slightest sound,,9,40 42 43 43 40 43 45 47 45
+C0322,C,Jeanne was turning the bow shoreward,,8,42 40 38 40 42 38 40 42
+C0323,C,And MacDougall was beyond the trail,,9,43 43 42 40 40 43 42 38 40
+C0324,C,Tomorrow I'm going after that bear,,10,42 43 45 42 40 42 40 42 40 38
+C0325,C,let's say our prayers and go to bed,,9,45 47 47 48 47 45 48 50 52
+C0326,C,I'm chewing this thing in two,,7,42 40 38 38 40 38 36
+C0327,C,and her eyes grew soft and moist,,7,45 42 43 43 45 48 47
+C0328,C,they of the Junta least of all,,8,42 43 43 43 42 43 42 42
+C0329,C,It is very plausible to such people,,11,42 42 43 40 36 36 38 40 42 38 36
+C0330,C,Fresh meat they failed to obtain,,7,45 47 45 43 40 42 45
+C0331,C,but the truth continued to outrun them,,10,45 47 48 47 45 42 38 36 40 42
+C0332,C,A rising tide of fat had submerged them,,10,47 45 48 47 43 40 38 38 36 40
+C0333,C,It was not exactly a deportation,,11,42 42 40 36 40 42 42 42 43 40 42
+C0334,C,To her the bridge was tambo,,7,42 38 40 40 43 42 40
+C0335,C,He bore no grudges and had few enemies,,11,45 43 45 43 45 43 40 40 38 40 43
+C0336,C,He was an athlete and a giant,,9,42 38 36 36 40 40 38 36 38
+C0337,C,But Johannes could,,5,47 45 47 50 52
+C0338,C,I had been born with no organic,,9,45 43 43 45 47 47 50 52 52
+C0339,C,pointing with his finger,,6,42 45 42 38 40 40
+C0340,C,He confessed that the sketch had startled him,,10,42 40 38 38 38 40 38 36 40 40
+C0341,C,Philip did not pursue the subject,,9,42 45 45 48 48 47 50 48 50
+C0342,C,Suppose you saw me at work through the window,,11,40 36 38 36 36 36 40 40 38 38 40
+C0343,C,We must achieve our own salvation,,10,42 40 40 42 43 45 45 45 43 45
+C0344,C,I have hunted along this ridge,,8,42 45 47 48 50 48 45 47
+C0345,C,Billinger may arrive in time,,8,47 45 43 42 45 43 42 38
+C0346,C,and stood shoulder to shoulder facing their world,,11,42 38 42 38 38 42 43 43 45 43 47
+C0347,C,Saxon's onto her job,,6,42 40 42 38 42 38
+C0348,C,and its movements were accelerated,,10,45 47 50 48 48 50 52 52 50 48
+C0349,C,with some help from the doctor,,7,45 43 42 45 45 43 42
+C0350,C,Though the aurora still flamed,,7,45 48 50 50 48 50 48
+C0351,C,And now behold the perversity of things,,11,45 42 43 47 47 48 47 48 47 48 48
+C0352,C,She is essentially the life-giving,,10,43 45 48 52 50 50 47 47 48 52
+C0353,C,with ominous rolling head,,7,43 45 43 45 47 48 48
+C0354,C,the austere soldier of the Lord,,8,42 38 36 36 40 38 36 38
+C0355,C,Then came my boy code,,5,47 48 50 52 50
+C0356,C,The Russian music player,,7,42 38 40 42 43 47 43
+C0357,C,I was the only one who remained sitting,,11,42 43 45 42 40 38 38 36 38 36 38
+C0358,C,The men stared into each other's face,,9,47 45 47 45 47 43 42 43 42
+C0359,C,he tried to fathom her,,6,42 42 43 47 48 48
+C0360,C,They ate dinner at the fifth,,7,43 45 45 42 43 42 40
+C0361,C,She had died from cold and starvation,,9,42 38 40 42 40 36 36 38 36
+C0362,C,and revealed himself to Jeanne,,7,45 45 47 50 47 43 43
+C0363,C,He drank of the water cautiously,,9,45 47 48 45 43 40 36 36 36
+C0364,C,Sometimes her dreams were filled with visions,,9,40 42 43 42 42 42 43 42 42
+C0365,C,Do you know any good land around here,,10,45 47 48 48 48 47 47 48 50 50
+C0366,C,They ought to pass here some time today,,9,45 45 43 45 45 45 47 48 50
+C0367,C,whoever they are,,5,40 40 36 36 36
+C0368,C,McCoy found a stifling,,6,40 40 43 43 45 42
+C0369,C,I'll be out of my head in fifteen minutes,,11,42 45 45 48 48 45 47 48 48 47 43
+C0370,C,We had been chased by them ourselves,,9,45 47 43 43 42 43 42 40 40
+C0371,C,A burst of laughter was his reward,,9,43 45 45 47 47 43 47 48 52
+C0372,C,We have plenty of capital ourselves,,11,40 38 42 42 40 43 42 40 38 40 42
+C0373,C,There is not an iota of truth in it,,11,42 38 36 38 38 42 40 38 36 36 38
+C0374,C,cabin boy on the schooner Ghost,,8,45 48 45 45 43 42 38 40
+C0375,C,The stout wood was crushed like an eggshell,,9,45 42 40 38 38 40 43 43 42
+C0376,C,but he is also human,,7,42 43 40 36 36 36 36
+C0377,C,The Oligarchy wanted violence,,10,42 45 47 47 43 47 48 45 43 40
+C0378,C,May drought destroy your crops,,6,45 47 45 48 45 42
+C0379,C,some of them have dinner engagements,,9,40 38 36 38 36 36 36 38 40
+C0380,C,And the foundation stone of service,,9,45 43 43 40 43 42 43 40 42
+C0381,C,This is my fifth voyage,,6,42 45 48 47 45 42
+C0382,C,We don't see ourselves as foolish,,9,45 47 48 50 52 52 48 47 45
+C0383,C,We are both children together,,8,42 42 38 40 43 43 43 45
+C0384,C,Philip dropped back into his chair,,8,43 42 42 40 42 38 36 36
+C0385,C,to challenge his presence,,6,42 38 36 36 38 36
+C0386,C,if he used caution,,5,40 38 36 36 36
+C0387,C,now -- for you can understand,,7,42 38 36 38 42 43 42
+C0388,C,a wanderer without a friend or a home,,11,45 43 42 38 42 45 43 42 40 42 43
+C0389,C,Let them go out and eat with my boys,,9,45 43 45 47 45 43 42 45 47
+C0390,C,I use great trouble advisedly,,9,40 38 42 40 40 43 42 40 40
+C0391,C,You were destroying my life,,7,43 42 42 45 43 47 48
+C0392,C,Shorty turned to their employers,,8,45 45 47 48 50 48 50 47
+C0393,C,They just lay off in the bush and plugged away,,11,47 48 52 52 50 47 45 48 47 45 42
+C0394,C,Two of the Folk were already up,,9,47 50 47 48 50 50 52 52 52
+C0395,C,A flying arrow passed between us,,9,42 45 42 43 47 45 47 43 43
+C0396,C,It was a gigantic inadequacy,,11,40 42 42 43 42 43 42 38 38 36 40
+C0397,C,I'll be plumb gosh darned,,5,42 43 42 45 45
+C0398,C,I play that choice wide open to win,,9,43 47 43 45 47 47 48 52 50
+C0399,C,But how are you going to do it,,9,47 43 42 38 40 38 36 40 38
+C0400,C,It is merely the simple superlative,,11,42 43 42 40 42 42 40 42 40 40 43
+C0401,C,but his motive was obvious enough,,10,42 40 42 38 38 40 36 36 36 40
+C0402,C,Your father's fifth command,,6,43 42 43 40 42 40
+C0403,C,rising from the serf class to our class,,10,43 40 38 36 36 38 40 42 43 45
+C0404,C,The task we set ourselves was threefold,,10,42 40 42 43 45 43 45 42 38 36
+C0405,C,You yellow giant thing of the frost,,9,42 40 38 36 36 38 36 36 36
+C0406,C,Eggshell is not good to eat,,7,45 42 40 42 45 48 50
+C0407,C,He read his fragments aloud,,7,43 42 43 42 40 42 42
+C0408,C,Author of the danger trail,,7,47 43 43 45 47 48 50
+C0409,C,of almost delicate physique,,8,40 42 38 40 40 40 38 36
+C0410,C,It's the aurora borealis,,9,43 40 40 38 40 43 45 48 47
+C0411,C,a rifle-shot beyond the ridge,,8,42 38 40 40 38 42 40 36
+C0412,C,There was a change now,,5,42 43 40 43 42
+C0413,C,They were three hundred yards apart,,8,40 42 43 42 40 43 45 48
+C0414,C,Meanwhile I'll go out to breathe a spell,,9,42 38 42 40 42 40 42 40 38
+C0415,C,Pearce's little eyes were fixed on him shrewdly,,11,42 38 36 40 38 36 36 36 38 38 36
+C0416,C,I have no idea,,6,45 43 43 45 43 47
+C0417,C,Surely I will excuse you,,7,45 43 47 45 47 47 50
+C0418,C,It was a large canoe,,6,47 45 48 50 52 50
+C0419,C,A trickle of fresh blood ran over his face,,11,40 36 38 36 36 38 38 36 36 38 40
+C0420,C,Philip bent lower,,5,42 42 40 38 42
+C0421,C,The singing voice approached rapidly,,9,43 43 45 47 45 45 48 48 47
+C0422,C,Shall I carry you,,5,45 47 48 47 45
+C0423,C,He will follow us soon,,6,47 50 48 50 52 48
+C0424,C,He was wounded in the arm,,7,43 42 45 43 43 42 38
+C0425,C,Her words sent a strange chill through Philip,,9,42 40 38 36 38 38 40 42 40
+C0426,C,A cry of joy burst from Philip's lips,,9,42 42 43 45 43 42 40 43 40
+C0427,C,He obeyed the pressure of her hand,,9,47 50 48 47 43 42 40 36 36
+C0428,C,as they tear very easily,,8,47 48 47 45 43 45 42 38
+C0429,C,He was smooth-shaven,,5,42 43 40 43 42
+C0430,C,Philip made no effort to follow,,9,40 36 38 40 38 36 36 38 36
+C0431,C,They were the presage of storm,,7,40 40 36 36 36 36 36
+C0432,C,and give us your paw,,5,45 47 43 43 42
+C0433,C,And the air was growing chilly,,8,40 40 36 38 36 40 43 43
+C0434,C,It was edged with ice,,5,42 45 47 43 40
+C0435,C,Such a dog the wise driver kills,,8,40 43 40 36 38 38 42 43
+C0436,C,From now on we're pals,,5,45 47 48 47 48
+C0437,C,freed from the yoke of oppression,,8,40 43 47 43 43 40 42 43
+C0438,C,They die out of spite,,5,43 45 47 45 43
+C0439,C,But it contributed to the smash,,9,45 45 47 45 45 47 45 43 43
+C0440,C,Don't you see I hate you,,6,42 45 47 48 52 52
+C0441,C,I only read the quotations,,8,45 42 40 42 42 42 40 40
+C0442,C,You won't die of malnutrition,,8,43 45 42 43 42 38 36 36
+C0443,C,She said with chattering teeth,,7,45 47 43 47 47 50 50
+C0444,C,I do not blame you for anything,,9,42 43 45 45 47 47 47 47 47
+C0445,C,Those are my oysters,,5,40 43 42 43 45
+C0446,C,hurrah for the game,,5,47 48 52 52 50
+C0447,C,He was a wise hyena,,7,42 42 40 38 40 42 43
+C0448,C,But life's worth more than cash,,6,43 40 42 40 42 43
+C0449,C,I can't argue with you,,6,47 47 50 50 50 48
+C0450,C,I'll go over tomorrow afternoon,,10,42 43 40 38 36 36 40 42 40 43
+C0451,C,But I am at the end of my resources,,11,45 43 45 45 47 48 47 50 50 50 52
+C0452,C,It is also an insidious,,9,40 40 38 36 36 36 38 40 43
+E0453,E,I noticed blood spouting from Kerfoot's left hand,soft,11,40 43 42 42 43 40 38 36 38 36 40
+E0454,E,I noticed blood spouting from Kerfoot's left hand,chest,11,43 42 45 43 47 50 52 52 50 47 48
+E0455,E,I noticed blood spouting from Kerfoot's left hand,belted,11,45 48 50 52 52 52 50 48 48 52 50
+E0456,E,I noticed blood spouting from Kerfoot's left hand,whispered,11,42 40 43 40 36 36 38 36 36 36 40
+E0457,E,Something that Whittemore had not yet said thrilled him,soft,11,43 42 42 45 47 43 42 42 40 43 45
+E0458,E,Something that Whittemore had not yet said thrilled him,chest,11,45 43 45 47 48 50 47 45 43 45 42
+E0459,E,Something that Whittemore had not yet said thrilled him,belted,11,45 42 38 36 36 36 36 38 40 43 42
+E0460,E,Something that Whittemore had not yet said thrilled him,whispered,11,45 43 45 47 48 50 52 50 52 48 47
+E0461,E,and snorting steamboats challenged the wilderness,soft,11,42 42 43 42 40 42 40 40 36 36 36
+E0462,E,and snorting steamboats challenged the wilderness,chest,11,42 42 40 42 40 36 36 40 43 47 50
+E0463,E,and snorting steamboats challenged the wilderness,belted,11,47 47 48 47 43 47 48 45 43 43 42
+E0464,E,and snorting steamboats challenged the wilderness,whispered,11,40 38 40 42 42 43 45 43 43 43 47
+E0465,E,The wolf-dog thrust his gaunt muzzle toward him,soft,11,42 40 38 42 43 45 47 45 43 40 36
+E0466,E,The wolf-dog thrust his gaunt muzzle toward him,chest,11,40 43 42 40 38 36 36 38 36 36 38
+E0467,E,The wolf-dog thrust his gaunt muzzle toward him,belted,11,45 48 52 48 52 50 52 52 52 52 52
+E0468,E,The wolf-dog thrust his gaunt muzzle toward him,whispered,11,45 42 45 42 40 43 47 50 52 50 48
+E0469,E,Whiz-zip-bang. Lop-Ear screamed with sudden anguish,soft,11,40 43 42 43 47 48 50 50 48 47 48
+E0470,E,Whiz-zip-bang. Lop-Ear screamed with sudden anguish,chest,11,45 42 43 42 40 36 36 38 42 38 36
+E0471,E,Whiz-zip-bang. Lop-Ear screamed with sudden anguish,belted,11,40 42 38 36 38 36 36 40 43 47 45
+E0472,E,Whiz-zip-bang. Lop-Ear screamed with sudden anguish,whispered,11,43 43 43 43 40 40 38 40 42 43 43
+E0473,E,Poor little Crooked-Leg was terribly scared,soft,11,45 47 48 52 50 47 50 47 43 42 40
+E0474,E,Poor little Crooked-Leg was terribly scared,chest,11,47 45 45 42 42 38 38 36 36 38 36
+E0475,E,Poor little Crooked-Leg was terribly scared,belted,11,45 43 43 42 43 43 40 40 38 36 36
+E0476,E,Poor little Crooked-Leg was terribly scared,whispered,11,43 42 43 42 43 42 40 42 40 43 47
+E0477,E,The questions may have come vaguely in his mind,soft,11,47 45 43 45 47 48 52 50 52 52 52
+E0478,E,The questions may have come vaguely in his mind,chest,11,47 45 47 45 48 50 50 48 47 50 48
+E0479,E,The questions may have come vaguely in his mind,belted,11,42 40 40 40 42 43 47 50 48 50 52
+E0480,E,The questions may have come vaguely in his mind,whispered,11,40 38 36 36 40 40 40 42 40 36 36
+E0481,E,His slim fingers closed like steel about Philip's,soft,11,42 38 36 38 38 42 40 42 43 42 40
+E0482,E,His slim fingers closed like steel about Philip's,chest,11,43 40 43 43 43 43 42 43 47 45 42
+E0483,E,His slim fingers closed like steel about Philip's,belted,11,40 40 38 42 43 43 40 38 36 36 40
+E0484,E,His slim fingers closed like steel about Philip's,whispered,11,42 43 45 48 50 48 50 48 50 52 50
+E0485,E,Miss Brodie's smile was slightly sarcastic,soft,10,45 47 45 45 47 45 43 45 43 45
+E0486,E,Miss Brodie's smile was slightly sarcastic,chest,10,45 42 42 40 38 36 38 38 40 42
+E0487,E,Miss Brodie's smile was slightly sarcastic,belted,10,42 40 43 45 47 47 45 47 45 48
+E0488,E,Miss Brodie's smile was slightly sarcastic,whispered,10,45 42 42 45 43 40 36 36 40 43
+E0489,E,fearing that Jacques might see what was in her face,soft,11,43 45 43 40 38 38 42 42 43 42 40
+E0490,E,fearing that Jacques might see what was in her face,chest,11,43 45 42 45 47 50 48 50 48 47 43
+E0491,E,fearing that Jacques might see what was in her face,belted,11,42 42 43 47 50 48 50 50 47 45 43
+E0492,E,fearing that Jacques might see what was in her face,whispered,11,45 43 43 45 43 42 43 42 43 43 40
+E0493,E,What do you mean by this outrageous conduct,soft,11,45 48 47 43 42 45 45 48 50 48 47
+E0494,E,What do you mean by this outrageous conduct,chest,11,42 43 45 42 42 38 42 45 48 50 52
+E0495,E,What do you mean by this outrageous conduct,belted,11,45 47 45 42 45 45 48 47 48 48 50
+E0496,E,What do you mean by this outrageous conduct,whispered,11,43 47 43 47 50 48 50 50 47 45 47
+E0497,E,Gregson shoved back his chair and rose to his feet,soft,11,47 48 45 45 43 42 45 43 43 42 40
+E0498,E,Gregson shoved back his chair and rose to his feet,chest,11,47 43 45 45 43 40 42 45 43 47 50
+E0499,E,Gregson shoved back his chair and rose to his feet,belted,11,40 36 36 40 40 38 36 36 38 40 36
+E0500,E,Gregson shoved back his chair and rose to his feet,whispered,11,42 45 43 42 40 38 36 36 40 36 36
+E0501,E,Then he stepped back with a low cry of pleasure,soft,11,42 43 43 43 43 45 48 50 47 47 47
+E0502,E,Then he stepped back with a low cry of pleasure,chest,11,42 38 36 40 40 40 42 43 42 40 42
+E0503,E,Then he stepped back with a low cry of pleasure,belted,11,40 42 40 38 40 38 36 36 40 42 38
+E0504,E,Then he stepped back with a low cry of pleasure,whispered,11,42 38 42 43 42 38 38 40 42 43 45
+E0505,E,He drew in a deep breath as he looked at them,soft,11,45 43 42 40 40 43 43 42 40 38 36
+E0506,E,He drew in a deep breath as he looked at them,chest,11,43 42 42 43 42 40 38 42 40 42 40
+E0507,E,He drew in a deep breath as he looked at them,belted,11,45 47 48 50 48 48 45 48 50 48 50
+E0508,E,He drew in a deep breath as he looked at them,whispered,11,42 45 45 43 42 38 40 38 36 38 42
+E0509,E,Hans hurled himself upon the prostrate man,soft,10,47 50 48 47 47 43 47 45 47 45
+E0510,E,Hans hurled himself upon the prostrate man,chest,10,40 36 38 42 42 42 40 38 40 42
+E0511,E,Hans hurled himself upon the prostrate man,belted,10,40 42 43 47 45 48 45 43 47 45
+E0512,E,Hans hurled himself upon the prostrate man,whispered,10,40 42 42 42 40 43 47 43 43 47
+E0513,E,to be altered by adjectives and adverbs,soft,11,45 43 42 42 40 36 36 36 36 36 36
+E0514,E,to be altered by adjectives and adverbs,chest,11,40 43 40 42 38 36 36 40 36 36 40
+E0515,E,to be altered by adjectives and adverbs,belted,11,42 43 47 47 50 47 45 45 42 40 36
+E0516,E,to be altered by adjectives and adverbs,whispered,11,43 42 40 38 36 36 36 36 36 36 36
+E0517,E,Jeanne and Pierre both gazed toward the great rock,soft,11,45 45 48 52 52 52 52 52 52 48 48
+E0518,E,Jeanne and Pierre both gazed toward the great rock,chest,11,42 42 43 43 47 50 47 45 48 50 48
+E0519,E,Jeanne and Pierre both gazed toward the great rock,belted,11,42 40 36 40 42 38 36 36 36 40 42
+E0520,E,Jeanne and Pierre both gazed toward the great rock,whispered,11,45 47 43 45 43 47 43 42 43 45 42
+E0521,E,For two hours not a word passed between them,soft,11,45 42 45 48 47 48 50 48 50 48 47
+E0522,E,For two hours not a word passed between them,chest,11,42 43 47 48 47 45 42 40 36 36 40
+E0523,E,For two hours not a word passed between them,belted,11,47 48 52 52 52 50 50 47 43 45 47
+E0524,E,For two hours not a word passed between them,whispered,11,45 43 47 45 47 47 48 45 48 47 45
+E0525,E,You were looking squeamish this afternoon,soft,10,45 43 42 40 42 42 40 42 42 40
+E0526,E,You were looking squeamish this afternoon,chest,10,45 47 48 47 48 47 45 43 43 47
+E0527,E,You were looking squeamish this afternoon,belted,10,47 50 47 48 52 50 52 48 45 47
+E0528,E,You were looking squeamish this afternoon,whispered,10,45 48 52 52 52 50 52 50 52 52
+E0529,E,What part of the United States is your home,soft,11,42 40 36 36 38 38 36 38 40 42 42
+E0530,E,What part of the United States is your home,chest,11,45 47 48 45 42 42 40 40 36 38 36
+E0531,E,What part of the United States is your home,belted,11,42 40 38 36 40 36 36 36 36 36 36
+E0532,E,What part of the United States is your home,whispered,11,40 38 36 40 42 38 42 43 45 43 47
+F0533,F,ah (straight),,1,43
+F0534,F,oh (with vibrato),,1,39
+F0535,F,ee (straight),,1,40
+F0536,F,ah (with vibrato),,1,40
+F0537,F,oh (straight),,1,47
+F0538,F,oo (with vibrato),,1,48
+F0539,F,oh (straight),,1,43
+F0540,F,ah (with vibrato),,1,44
+F0541,F,oo (straight),,1,44
+F0542,F,ee (with vibrato),,1,42
+F0543,F,ee (straight),,1,41
+F0544,F,ee (with vibrato),,1,38
+F0545,F,oh (straight),,1,40
+F0546,F,oh (with vibrato),,1,40
+F0547,F,oo (straight),,1,48
+F0548,F,ah (with vibrato),,1,45
+F0549,F,ah (straight),,1,50
+F0550,F,ee (with vibrato),,1,46
+F0551,F,ah (straight),,1,45
+F0552,F,ee (with vibrato),,1,38
+G0553,G,in-breath,,1,43
+G0554,G,in-breath,,1,43
+G0555,G,in-breath,,1,43
+G0556,G,in-breath,,1,43
+G0557,G,in-breath,,1,43
+G0558,G,in-breath,,1,43
+G0559,G,in-breath,,1,43
+G0560,G,in-breath,,1,43
+G0561,G,in-breath,,1,43
+G0562,G,in-breath,,1,43
+G0563,G,ooh,,1,43
+G0564,G,ooh,,1,43
+G0565,G,ooh,,1,43
+G0566,G,ooh,,1,43
+G0567,G,ooh,,1,43
+G0568,G,ooh,,1,43
+G0569,G,ooh,,1,43
+G0570,G,ah,,1,43
+G0571,G,ah,,1,43
+G0572,G,ah,,1,43
+G0573,G,ah,,1,43
+G0574,G,ah,,1,43
+G0575,G,ah,,1,43
+G0576,G,ah,,1,43
+G0577,G,hum,,1,43
+G0578,G,hum,,1,43
+G0579,G,hum,,1,43
+G0580,G,hum,,1,43
+G0581,G,hum,,1,43
+G0582,G,hum,,1,43
