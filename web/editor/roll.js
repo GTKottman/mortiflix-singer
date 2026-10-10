@@ -75,6 +75,15 @@ export class Roll {
     if (app.selRef) { app.selRef = null; app.changed('select'); }
     if (tool === 'erase') { if (n && !n.lock) app.edit('erase note', (p) => { const t = app.trackOf(p); t.notes = t.notes.filter((m) => m.id !== n.id); }); return; }
     if (tool === 'pitch') { this.drag = { kind: 'pitch', pts: [[this.T(x), this.pitchAtY(y, e.altKey)]] }; return; }
+    if (n && e.altKey && tool === 'select') {     // Alt+drag: drag a copy of the selection (the originals stay)
+      if (!app.sel.has(n.id)) { app.sel.clear(); app.sel.add(n.id); }
+      const src = this.notes().filter((m) => app.sel.has(m.id)), copies = src.map((m) => ({ ...m, id: uid(), lock: false }));
+      app.edit('duplicate notes', (p) => app.trackOf(p).notes.push(...copies.map((c) => ({ ...c }))));
+      app.sel = new Set(copies.map((c) => c.id));
+      const live = this.notes(), lead = live.find((m) => m.id === copies[src.indexOf(n)].id);
+      this.drag = { kind: 'move', start: { x, y }, note: lead, orig: live.filter((m) => app.sel.has(m.id)).map((m) => ({ id: m.id, tick: m.tick, dur: m.dur, pitch: m.pitch })), moved: false };
+      app.changed('select'); return;
+    }
     if (n) {
       if (!app.sel.has(n.id)) { if (!e.shiftKey) app.sel.clear(); app.sel.add(n.id); }
       else if (e.shiftKey) { app.sel.delete(n.id); app.changed('select'); return; }
