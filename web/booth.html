@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Booth · Mortiflix Singer</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="booth.css">
+</head>
+<body>
+<header class="booth-top">
+  <a class="brand" href="/">Mortiflix</a>
+  <span class="crumb">Singer · Booth</span>
+  <span class="grow"></span>
+  <span id="progress" class="muted"></span>
+</header>
+
+<main id="setup" class="booth-main">
+  <h1>Record your voice</h1>
+  <p class="lead">You sing each line as well as you can while the tuner shows where your pitch is. Being sharp or flat is fine: the model learns your voice, and tuning comes from the music later. What matters is clear words and steady notes.</p>
+  <ol class="checks">
+    <li><b>Microphone.</b> <button id="mic" class="btn primary">Allow the microphone</button> <span id="mic-state" class="muted"></span></li>
+    <li><b>Room.</b> Stay silent for 5 seconds. <button id="room" class="btn" disabled>Check the room</button> <span id="room-state" class="muted"></span></li>
+    <li><b>Level.</b> Sing "ah" loud for 3 seconds. <button id="level" class="btn" disabled>Check the level</button> <span id="level-state" class="muted"></span></li>
+    <li><b>Range.</b> Slide from your lowest comfortable note to your highest. <button id="range" class="btn" disabled>Find my range</button> <span id="range-state" class="muted"></span></li>
+  </ol>
+  <p><label>Voice name <input id="name" value="you" maxlength="40"></label>
+     <button id="start" class="btn primary" disabled>Start singing</button></p>
+</main>
+
+<main id="booth" class="booth-main" hidden>
+  <div class="line-head">
+    <span id="line-id" class="muted"></span>
+    <span id="line-style" class="badge" hidden></span>
+  </div>
+  <div id="line-text" class="line-text"></div>
+  <canvas id="roll" class="roll" height="240"></canvas>
+  <div class="tuner">
+    <div id="needle-note" class="needle-note">–</div>
+    <svg id="needle" viewBox="0 0 200 110" class="needle" aria-hidden="true">
+      <path d="M10 100 A90 90 0 0 1 190 100" class="arc"/>
+      <path d="M78 15 A90 90 0 0 1 122 15" class="arc ok"/>
+      <line id="needle-hand" x1="100" y1="100" x2="100" y2="16" class="hand"/>
+    </svg>
+    <div id="needle-words" class="needle-words">sing a note</div>
+  </div>
+  <div class="meter"><div id="meter-fill" class="meter-fill"></div><div class="meter-target"></div></div>
+  <div class="controls">
+    <button id="rec" class="btn primary">Record (Space)</button>
+    <button id="redo" class="btn" disabled>Redo (R)</button>
+    <button id="next" class="btn">Next line (Enter)</button>
+    <label><input type="checkbox" id="follow" checked> Follow me (the key moves to you)</label>
+    <label><input type="checkbox" id="drone"> Drone</label>
+    <label><input type="checkbox" id="guide" checked> Guide melody</label>
+  </div>
+  <div id="result" class="result" hidden></div>
+</main>
+<script type="module" src="booth.js"></script>
+</body>
+</html>
