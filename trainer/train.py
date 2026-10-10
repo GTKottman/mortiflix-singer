@@ -74,7 +74,7 @@ def acoustic_config(data, work, name, steps, smoke):
                                'random_time_stretching': {'enabled': True, 'range': [0.5, 2.], 'scale': 0.75}},
          'diffusion_type': 'reflow', 'use_shallow_diffusion': True, 'T_start': 0.4, 'T_start_infer': 0.4,
          'K_step': 300, 'K_step_infer': 300,
-         'max_updates': steps, 'val_check_interval': 2000, 'permanent_ckpt_start': max(steps // 2, 1), 'permanent_ckpt_interval': 10000}
+         'max_updates': steps, 'val_check_interval': min(2000, steps), 'permanent_ckpt_start': max(steps // 2, 1), 'permanent_ckpt_interval': 10000}
     if smoke:
         c.update({'hidden_size': 64, 'backbone_args': {'num_channels': 64, 'num_layers': 2, 'kernel_size': 31, 'dropout_rate': 0.0,
                                                         'use_conditioner_cache': True, 'glu_type': 'atanglu'},
@@ -110,7 +110,7 @@ def variance_config(data, work, name, steps, smoke):
          'predict_dur': True, 'predict_pitch': True,
          'predict_energy': True, 'predict_breathiness': True, 'predict_voicing': True, 'predict_tension': True,
          'use_melody_encoder': True, 'use_glide_embed': False,
-         'max_updates': steps, 'val_check_interval': 2000, 'permanent_ckpt_start': max(steps // 2, 1), 'permanent_ckpt_interval': 10000}
+         'max_updates': steps, 'val_check_interval': min(2000, steps), 'permanent_ckpt_start': max(steps // 2, 1), 'permanent_ckpt_interval': 10000}
     if smoke:
         c.update({'hidden_size': 64, 'dur_prediction_args': {'arch': 'resnet', 'hidden_size': 64, 'dropout': 0.1, 'num_layers': 2, 'kernel_size': 3,
                                                              'log_offset': 1.0, 'loss_type': 'mse', 'lambda_pdur_loss': 0.3, 'lambda_wdur_loss': 1.0, 'lambda_sdur_loss': 3.0},
