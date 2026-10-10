@@ -86,13 +86,44 @@ class Store:
         f = self.dataset(name) / 'booth.json'
         tmp = f.with_suffix('.tmp'); tmp.write_text(json.dumps(b, indent=1)); tmp.replace(f)
 
+    def script(self, name):
+        """The Booth's lines for this singer: the fixed script plus set D, lines from their own songs."""
+        f = self.dataset(name) / 'songs.json'
+        return SCRIPT + (json.loads(f.read_text()) if f.exists() else [])
+
+    def line(self, name, lid):
+        return LINES.get(lid) or next((r for r in self.script(name) if r['id'] == lid), None)
+
+    def add_song(self, name, project):
+        """Each sung phrase of a project becomes a Booth line (set D) with its words and melody."""
+        from engine.project import expand_groups, TempoMap
+        from engine.song import words_of, phrases_of
+        p = expand_groups(project); f = self.dataset(name) / 'songs.json'
+        have = json.loads(f.read_text()) if f.exists() else []
+        n0 = max([int(r['id'][1:]) for r in have] or [900]) + 1
+        tm = TempoMap(p); bpm = p['tempo'][0]['bpm']; spb = 60000 / bpm; added = []
+        for t in p['tracks']:
+            notes = sorted(t['notes'], key=lambda n: n['tick'])
+            raw = [[tm.to_ms(n['tick']), tm.to_ms(n['tick'] + n['dur']) - tm.to_ms(n['tick']), n['pitch']] for n in notes]
+            toks = [(n.get('lyric') or 'la') for n in notes]
+            for ph in phrases_of(words_of(raw, toks, {}, t.get('lang', 'en'))):
+                ns = [n for w in ph for n in w.notes]
+                text = ' '.join(re.sub(r'\{.*?\}', '', getattr(w, 'text', '') or '').strip() for w in ph).strip()
+                text = re.sub(r'\s+', ' ', re.sub(r'[^\w\s\',.!?-]', '', text))
+                if not text or len(ns) < 2: continue
+                s0 = ns[0].start
+                added.append({'set': 'D', 'id': f'D{n0 + len(added):04d}', 'text': text, 'song': p.get('title', ''), 'syllables': len(ns),
+                              'melody': {'bpm': bpm, 'notes': [{'beat': round((n.start - s0) / spb, 3), 'beats': round(n.dur / spb, 3), 'midi': int(round(n.midi))} for n in ns]}})
+        tmp = f.with_suffix('.tmp'); tmp.write_text(json.dumps(have + added, indent=1)); tmp.replace(f)
+        return added
+
     def progress(self, name):
         b = self.booth(name)
         sets = {}
-        for r in SCRIPT:
+        for r in self.script(name):
             s = sets.setdefault(r['set'], {'lines': 0, 'kept': 0})
             s['lines'] += 1; s['kept'] += r['id'] in b['kept']
-        nxt = next((r['id'] for r in SCRIPT if r['id'] not in b['kept']), None)
+        nxt = next((r['id'] for r in self.script(name) if r['id'] not in b['kept']), None)
         return {'sets': sets, 'next': nxt, 'kept': b['kept'], 'takes': {k: [t['grade'] for t in v] for k, v in b['takes'].items()}}
 
 
@@ -289,7 +320,7 @@ class Trainer:
         log = (w / 'train.log').read_text(errors='replace')[-6000:] if (w / 'train.log').exists() else ''
         steps = re.findall(r'steps=(\d+)', log)
         py, _ = self.env()
-        return {'name': name, 'kept': len(b['kept']), 'lines': len(SCRIPT), 'minutes': round(minutes, 1), 'min_minutes': MIN_MINUTES,
+        return {'name': name, 'kept': len(b['kept']), 'lines': len(self.store.script(name)), 'minutes': round(minutes, 1), 'min_minutes': MIN_MINUTES,
                 'installed': py is not None, 'kit': self.kit_job, 'gpu': self.has_gpu() if py else False,
                 'running': self.running() and self.name == name, 'busy_with': self.name if self.running() else None,
                 'state': state, 'step': int(steps[-1]) if steps else None,
@@ -350,7 +381,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             path, q, name = self.route()
-            if path == '/script': return self.send(200, SCRIPT)
+            if path == '/script': return self.send(200, self.store.script(name))
             if path == '/voices':
                 from engine.song import LANGS
                 return self.send(200, {'voices': self.store.voices(), 'modes': list(MODES), 'langs': LANGS})
@@ -422,9 +453,9 @@ class Handler(BaseHTTPRequestHandler):
             body = self.rfile.read(n) if n else b''
             if path == '/booth/take':
                 lid = q.get('id', '')
-                if not ID.match(lid) or lid not in LINES: return self.send(400, {'error': 'unknown line'})
+                if not ID.match(lid) or not self.store.line(name, lid): return self.send(400, {'error': 'unknown line'})
                 y, sr = sf.read(io.BytesIO(body), dtype='float32')
-                g = grade(y, sr, LINES[lid], preroll_s=float(q.get('preroll', 0)))
+                g = grade(y, sr, self.store.line(name, lid), preroll_s=float(q.get('preroll', 0)))
                 with lock:
                     b = self.store.booth(name)
                     takes = b['takes'].setdefault(lid, [])
@@ -550,6 +581,10 @@ class Handler(BaseHTTPRequestHandler):
                 bits = {'16': 'PCM_16', '24': 'PCM_24', '32': 'FLOAT'}.get(str(req.get('bits', 24)), 'PCM_24')
                 buf = io.BytesIO(); sf.write(buf, mix, sr, subtype=bits, format='WAV')
                 return self.send(200, buf.getvalue(), 'audio/wav')
+            if path == '/booth/songs':              # set D: lines from one of your song projects
+                req = json.loads(body)
+                proj = req.get('project') or json.loads(self.store.project_file(req['name']).read_text())
+                return self.send(200, {'added': len(self.store.add_song(name, proj))})
             if path == '/train/start':
                 req = json.loads(body or b'{}')
                 return self.send(200, self.trainer.start(name, int(req.get('steps', 160000)), bool(req.get('smoke')), bool(req.get('vocoder'))))

@@ -47,3 +47,8 @@ input#name { margin: 0 10px; padding: 6px 8px; background: transparent; color: v
 .ab > div { display: flex; flex-direction: column; gap: 4px; }
 .tune-form select { width: auto; }
 .tune-form label.btn { width: auto; justify-self: start; }
+.session { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.banner { border-left: 3px solid var(--accent); padding: 10px 14px; margin: 8px 0 14px; color: var(--ink); }
+.banner[hidden], .finish[hidden] { display: none; }
+.finish { border-left: 3px solid #3ccf7d; padding: 10px 14px; margin: 8px 0 14px; }
+.finish p { margin: 6px 0 10px; }

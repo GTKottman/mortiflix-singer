@@ -26,9 +26,14 @@
   </ol>
   <p><label>Voice name <input id="name" value="you" maxlength="40"></label>
      <button id="start" class="btn primary" disabled>Start singing</button></p>
+  <p class="muted">Your own songs teach the voice the most. Add one, and its lines join the script (set D):
+     <select id="song"><option value="">choose a project…</option></select> <button id="add-song" class="btn" disabled>Add its lines</button> <span id="song-state" class="muted"></span></p>
 </main>
 
 <main id="booth" class="booth-main" hidden>
+  <div id="session" class="session"></div>
+  <div id="banner" class="banner" hidden><span id="banner-text"></span> <button id="banner-ok" class="btn">I'm back</button></div>
+  <div id="finish" class="finish" hidden></div>
   <div class="line-head">
     <span id="line-id" class="muted"></span>
     <span id="line-style" class="badge" hidden></span>

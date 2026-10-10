@@ -93,11 +93,53 @@ const rangeShift = (notes) => {         // whole octaves only, toward the singer
   const centre = (setup.range[0] + setup.range[1]) / 2, med = notes.map((n) => n.midi).sort((a, b) => a - b)[Math.floor(notes.length / 2)];
   return 12 * Math.round((centre - med) / 12);
 };
+// the four sit-down sessions (design 8b): held vowels and scales, then the balanced lines in two halves, then your
+// songs, styles, holds and breaths. Any order works; this only shows where you are.
+const cLines = () => script.filter((r) => r.set === 'C');
+function sessionOf(l) {
+  if (!l) return 1;
+  if ('AB'.includes(l.set)) return 1;
+  if (l.set === 'C') return cLines().findIndex((r) => r.id === l.id) < 150 ? 2 : 3;
+  return 4;
+}
+function sessionText() {
+  if (!progress) return;
+  const sn = sessionOf(line), inS = script.filter((r) => sessionOf(r) === sn), keptS = inS.filter((r) => progress.kept[r.id]).length;
+  $('session').textContent = `Session ${sn} of 4 · ${SESSION_NAMES[sn]} · ${keptS} of ${inS.length} kept`;
+}
+const SESSION_NAMES = { 1: 'Held vowels and scales', 2: 'Balanced lines, first half', 3: 'Balanced lines, second half', 4: 'Your songs, styles, holds and breaths' };
 async function loadState() {
   const name = $('name').value.trim() || 'you';
   progress = await (await fetch(`${API}/booth/progress?name=${encodeURIComponent(name)}`)).json();
   const done = Object.keys(progress.kept).length;
   $('progress').textContent = `${done} of ${script.length} lines kept`;
+  sessionText();
+  finishLine(name, done);
+}
+// breaks: 2 minutes every 10 minutes of singing; and a tired voice (grades falling) suggests one sooner
+const pace = { since: Date.now(), grades: [] };
+function noteTake(grade) {
+  pace.grades.push('ABC'.indexOf(grade));
+  const recent = pace.grades.slice(-4), before = pace.grades.slice(0, -4);
+  const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  if (Date.now() - pace.since > 10 * 60 * 1000) banner('Ten minutes of singing: take a 2-minute break. Water, stretch, hum quietly.');
+  else if (recent.length === 4 && before.length >= 4 && avg(recent) - avg(before) >= 0.75) banner('Your last takes got rougher, which is what a tired voice sounds like. Take a short break.');
+}
+function banner(text) { $('banner-text').textContent = text; $('banner').hidden = false; }
+$('banner-ok').onclick = () => { $('banner').hidden = true; pace.since = Date.now(); pace.grades = []; };
+// the finish line: enough kept to train (or everything kept) -> a summary and the way to Training
+async function finishLine(name, done) {
+  if (!$('finish').hidden) return;
+  const st = await (await fetch(`${API}/train/status?name=${encodeURIComponent(name)}`)).json().catch(() => null);
+  if (!st || (st.minutes < st.min_minutes && done < script.length)) return;
+  const grades = Object.entries(progress.kept).map(([id, k]) => (progress.takes[id] || [])[k - 1]).filter(Boolean);
+  const count = (g) => grades.filter((x) => x === g).length;
+  $('finish').innerHTML = '';
+  const h = document.createElement('b'); h.textContent = done >= script.length ? 'Every line is recorded.' : 'You have enough to build your voice.';
+  const p = document.createElement('p'); p.className = 'muted';
+  p.textContent = `${done} lines kept (${count('A')} A, ${count('B')} B) · ${st.minutes} minutes of singing. More lines make a better voice; you can keep going or build it now.`;
+  const a = document.createElement('a'); a.className = 'btn primary'; a.href = 'training.html'; a.textContent = 'Build my voice';
+  $('finish').append(h, p, a); $('finish').hidden = false;
 }
 function show(l) {
   line = l; lastTake = null;
@@ -105,7 +147,7 @@ function show(l) {
   $('line-style').hidden = !l.style; $('line-style').textContent = l.style || '';
   $('line-text').textContent = l.text.trim();
   $('result').hidden = true; $('redo').disabled = true;
-  trace.length = 0; drawRoll(0);
+  trace.length = 0; drawRoll(0); sessionText();
 }
 function nextLine() {
   const kept = progress?.kept || {};
@@ -114,7 +156,7 @@ function nextLine() {
   if (l) show(l); else $('line-text').textContent = 'Every line is recorded. Build your voice from the Training page.';
 }
 $('start').onclick = async () => {
-  script = await (await fetch(`${API}/script`)).json();
+  script = await (await fetch(`${API}/script?name=${encodeURIComponent($('name').value.trim() || 'you')}`)).json();
   await loadState();
   $('setup').hidden = true; $('booth').hidden = false;
   const first = script.find((r) => r.id === progress.next) || script[0];
@@ -216,7 +258,7 @@ async function record() {
     $('result').hidden = false; $('result').className = 'result'; $('result').textContent = 'Checking the take…';
     try {
       const r = await (await fetch(`${API}/booth/take?name=${encodeURIComponent(name)}&id=${line.id}&preroll=0.5`, { method: 'POST', headers: { 'x-mortiflix': '1' }, body: wav(y, ctx.sampleRate) })).json();
-      lastTake = r;
+      lastTake = r; noteTake(r.grade);
       $('result').className = `result ${r.grade}`;
       const why = r.grade === 'A' ? 'Kept. On to the next line.' : r.grade === 'B' ? 'Kept (it will be cleaned up later).' : 'One more try?';
       $('result').innerHTML = `<span class="grade">${r.grade}</span>${why}<br>${(r.problems || []).map((p) => `<span class="muted">${p}</span>`).join('<br>')}${r.key_offset ? `<br><span class="muted">You sang ${Math.abs(r.key_offset)} semitone${Math.abs(r.key_offset) === 1 ? '' : 's'} ${r.key_offset < 0 ? 'below' : 'above'} the guide. That's fine.</span>` : ''}`;
@@ -239,3 +281,15 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'r' || e.key === 'R') record();
 });
 addEventListener('resize', () => drawRoll(0));
+
+// set D: your song projects become Booth lines
+fetch(`${API}/projects`).then((r) => r.json()).then((list) => {
+  for (const p of list) $('song').add(new Option(p.name, p.name));
+  $('song').onchange = () => { $('add-song').disabled = !$('song').value; };
+}).catch(() => {});
+$('add-song').onclick = async () => {
+  const name = $('name').value.trim() || 'you';
+  const r = await fetch(`${API}/booth/songs?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'x-mortiflix': '1', 'content-type': 'application/json' }, body: JSON.stringify({ name: $('song').value }) });
+  const d = await r.json();
+  $('song-state').textContent = r.ok ? `${d.added} lines added from "${$('song').value}"` : d.error;
+};

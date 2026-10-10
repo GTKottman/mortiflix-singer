@@ -119,6 +119,8 @@ def rows_for(name, y, sr, phones, aligner, preroll=0.0, tune=True):
 def takes_from_booth(booth_dir):
     b = json.loads((Path(booth_dir) / 'booth.json').read_text())
     script = {r['id']: r for r in json.loads((HERE.parent / 'booth/script.json').read_text())}
+    songs = Path(booth_dir) / 'songs.json'                     # set D: lines from your own songs
+    if songs.exists(): script.update({r['id']: r for r in json.loads(songs.read_text())})
     for lid, k in b['kept'].items():
         take = next((t for t in b['takes'][lid] if t['take'] == k), None)
         yield {'name': f'{lid}_{k}', 'wav': Path(booth_dir) / 'raw' / f'{lid}_{k}.wav', 'text': script[lid]['text'], 'preroll': (take or {}).get('preroll', 0.5)}
