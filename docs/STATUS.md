@@ -37,7 +37,7 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 | Playback while editing, background rendering, preview vs final | ✅ | guide tones for unrendered notes; preview 8 steps, final 20 |
 | Export WAV per track or mixed, 44.1/48 kHz, 16/24/32-bit | ✅ | 48 kHz/24-bit export checked in the browser |
 | Plugin VST3 + CLAP on Windows/macOS/Linux, synced to the host | ✅ | CI builds all three; loader test against a real render; clap-validator 32/44 (the 4 failures are nih-plug's own, its example plugin fails the same) |
-| AU on macOS | ❌ | nih-plug has no AU target |
+| AU on macOS | ✅ | clap-wrapper (MIT) wraps the CLAP as an AUv2 with the CLAP inside; CI builds it and Apple's auval passes |
 | Standalone app on all three systems | ✅ | CI installers; the Windows installer was installed and run on a Windows 11 VM (editor rendered) |
 
 ## Automation
@@ -62,4 +62,4 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 
 - Record in the Booth (about an hour of kept takes) and train the first real voice.
 - Train the optional own vocoder with your recordings (the code is ready and smoke-tested; 3.6 M parameters, about 11x faster than BigVGAN v2 on a CPU).
-- AU plugin; more languages.
+- More languages; a Logic test by hand.
