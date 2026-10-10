@@ -445,8 +445,10 @@ function inspector() {
 }
 
 // ---- project lifecycle ----
+let autosaveTimer = null;
 function changed(label) {
   app.dirty = true; store.set('singer-autosave', { name: app.name, project: app.project() });
+  clearTimeout(autosaveTimer); autosaveTimer = setTimeout(() => post('/autosave', { name: app.name, project: app.project() }).catch(() => {}), 3000);   // a copy the service keeps
   if (!app.project().tracks.some((t) => t.id === app.trackId)) app.trackId = app.project().tracks[0].id;
   $('title').value = app.project().title || ''; $('bpm').value = app.project().tempo[0].bpm; $('ts').value = app.project().time_sig.join('/');
   const k = app.project().key; $('key-root').value = k ? String(k.root) : ''; $('key-scale').value = k?.scale || 'major';
@@ -512,6 +514,9 @@ async function init() {
   for (const [k, s] of Object.entries(LANES)) $('lane').add(new Option(s.label, k, false, k === 'energy'));
   $('lane').onchange = (e) => { lanes.lane = e.target.value; lanes.draw(); };
   let saved = store.get('singer-autosave', null);
+  if (!saved) {             // this browser kept nothing (cleared, another computer): recover the service's copy
+    try { const a = await (await fetch(`${API}/autosave`)).json(); if (a.project) { saved = a; setTimeout(() => status('Recovered your last unsaved work'), 500); } } catch {}
+  }
   const want = new URLSearchParams(location.search).get('project');      // editor.html?project=Name opens a saved project
   if (want && saved?.name !== want) {
     try { const r = await fetch(`${API}/projects/${encodeURIComponent(want)}`); if (r.ok) saved = { name: want, project: await r.json() }; } catch {}

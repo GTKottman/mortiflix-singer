@@ -383,6 +383,10 @@ class Handler(BaseHTTPRequestHandler):
                 for t in mix['tracks']:
                     for ph in t['phrases']: ph['url'] = f"/api/singer/render/{Path(ph['file']).stem}.wav"; ph.pop('file', None)
                 return self.send(200, mix)
+            if path == '/autosave':                 # the newest unsaved editor state (project recovery)
+                d = self.store.home / 'projects' / '.autosave'
+                fs = sorted(d.glob('*.json'), key=lambda f: -f.stat().st_mtime) if d.exists() else []
+                return self.send(200, json.loads(fs[0].read_text()) if fs else {})
             if path == '/scripts':                     # editor scripts: bundled examples + your own (~/MortiflixSinger/scripts)
                 out = []
                 for base, kind in ((HERE / 'scripts', 'bundled'), (self.store.home / 'scripts', 'yours')):
@@ -469,6 +473,12 @@ class Handler(BaseHTTPRequestHandler):
                 project = json.loads(body)
                 tmp = f.with_suffix('.tmp'); tmp.write_text(json.dumps(project)); tmp.replace(f)
                 return self.send(200, {'ok': True, 'name': f.stem})
+            if path == '/autosave':
+                req = json.loads(body); d = self.store.home / 'projects' / '.autosave'; d.mkdir(parents=True, exist_ok=True)
+                key = re.sub(r'[^\w .()-]', '', req.get('name') or 'untitled')[:80] or 'untitled'
+                f = d / f'{key}.json'; tmp = f.with_suffix('.tmp')
+                tmp.write_text(json.dumps({'name': req.get('name'), 'project': req['project'], 'at': time.time()})); tmp.replace(f)
+                return self.send(200, {'ok': True})
             if path == '/backing':                     # an instrumental to sing against: stored by content, played in sync
                 import hashlib
                 ext = Path(q.get('filename', 'x.wav')).suffix.lower().lstrip('.')
