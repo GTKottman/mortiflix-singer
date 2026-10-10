@@ -26,6 +26,10 @@ class Note:
     dur: float                 # ms
     midi: float
     lyric: str                 # a word, "sun-" (syllable the next note finishes), "_" (hold), "." (silent)
+    vib_depth: float = 0.0     # extra vibrato on top of the model's own, cents
+    vib_rate: float = 5.5      # Hz
+    vib_start: float = 250.0   # ms after the note starts
+    energy: float = 0.0        # dB offset from velocity (127 = +6, 64 = 0, 1 = -12)
 
 
 @dataclass
@@ -141,8 +145,17 @@ class Voice:
         for n in div: wd.append(sum(durs[o:o + n])); o += n
         return np.array([div], np.int64), np.array([wd], np.int64)
 
-    def render_phrase(self, words: list[Word], steps=20, depth=None, pitch_steps=10, expr=1.0, correct=1.0, seed=0):
-        """-> (audio float32 at self.sr, start_ms of audio[0], dict of curves)."""
+    def render_phrase(self, words: list[Word], steps=20, depth=None, pitch_steps=10, expr=1.0, correct=1.0, seed=0,
+                      lanes=None, offsets=None, pitch_override=None):
+        """-> (audio float32 at self.sr, start_ms of audio[0], dict of curves).
+
+        lanes: {name: f(ms array) -> values} added on top of the models' predictions, per frame:
+          pitch (cents), energy / breathiness / voicing (dB), tension (-10..10), gender (-1..1 = formants up/down),
+          velocity (x speed of consonants, 1 = as predicted).
+        offsets: the vocal mode, constant additions {energy, breathiness, voicing, tension, gender} applied first.
+        pitch_override: f(ms array) -> semitones (NaN where the model's curve is kept): a drawn pitch line.
+        """
+        lanes, offsets = lanes or {}, offsets or {}
         rng = np.random.default_rng(seed)
         fm = self.frame_ms
         phones, end = self.layout(words)
@@ -179,21 +192,48 @@ class Voice:
             off[a:b] = correct * (n.midi - np.median(pitch[m0:m1]))
         k = max(1, int(30 / fm))
         off = np.convolve(np.pad(off, k, mode='edge'), np.ones(2 * k + 1) / (2 * k + 1), 'same')[k:-k]
-        pitch = (pitch + off).astype(np.float32)
+        pitch = pitch + off
+        times = t0 + np.arange(total) * fm
+        for n in notes:                                   # per-note extra vibrato, fading in over 150 ms
+            if n.vib_depth <= 0: continue
+            a, b = frame_of(n.start + n.vib_start), frame_of(n.start + n.dur)
+            if b <= a: continue
+            tt = (times[a:b] - (n.start + n.vib_start)) / 1000
+            pitch[a:b] += n.vib_depth / 100 * np.clip(tt / 0.15, 0, 1) * np.sin(2 * np.pi * n.vib_rate * tt)
+        if pitch_override is not None:
+            ov = np.asarray(pitch_override(times), float)
+            pitch = np.where(np.isnan(ov), pitch, ov)
+        if 'pitch' in lanes: pitch = pitch + np.asarray(lanes['pitch'](times)) / 100
+        pitch = pitch.astype(np.float32)
 
         vin = {'encoder_out': enc, 'ph_dur': ph_dur, 'pitch': pitch[None],
                'energy': np.zeros((1, total), np.float32), 'breathiness': np.zeros((1, total), np.float32),
                'voicing': np.zeros((1, total), np.float32), 'tension': np.zeros((1, total), np.float32),
                'retake': np.ones((1, total, 4), bool), 'steps': np.array(pitch_steps, np.int64)}
         energy, breath, voicing, tension = self.variance.run(None, vin)
+        # the vocal mode, the per-note dynamics and your lanes, on top of the predictions (clamped to the models' ranges)
+        note_energy = np.zeros(total)
+        for n in notes:
+            if n.energy: note_energy[frame_of(n.start):frame_of(n.start + n.dur)] = n.energy
+        add = lambda k: offsets.get(k, 0.0) + (np.asarray(lanes[k](times)) if k in lanes else 0.0)
+        energy = np.clip(energy + add('energy') + note_energy, -96, 0).astype(np.float32)
+        breath = np.clip(breath + add('breathiness'), -96, 0).astype(np.float32)
+        voicing = np.clip(voicing + add('voicing'), -96, 0).astype(np.float32)
+        tension = np.clip(tension + add('tension'), -10, 10).astype(np.float32)
+        # gender lane: -1 (lighter, smaller throat) .. +1 (darker); the model takes a key shift within its training range
+        kr = (self.cfg.get('augmentation_args', {}).get('random_pitch_shifting', {}).get('range') or [-3, 3])
+        g = np.clip(np.zeros(total) + add('gender'), -1, 1)
+        gender = np.where(g > 0, g * kr[0], -g * kr[1]).astype(np.float32)[None]
+        velocity = np.clip(np.ones(total) * (np.asarray(lanes['velocity'](times)) if 'velocity' in lanes else 1.0), 0.25, 4).astype(np.float32)[None]
         f0 = (440.0 * 2 ** ((pitch - 69) / 12)).astype(np.float32)
         ain = {'tokens': tokens, 'durations': ph_dur, 'f0': f0[None], 'energy': energy, 'breathiness': breath,
-               'voicing': voicing, 'tension': tension, 'gender': np.zeros((1, total), np.float32),
-               'velocity': np.ones((1, total), np.float32),
+               'voicing': voicing, 'tension': tension, 'gender': gender,
+               'velocity': velocity,
                'depth': np.array(float(depth if depth is not None else self.cfg.get('max_depth', 0.6)), np.float32),
                'steps': np.array(steps, np.int64)}
         mel = self.acoustic.run(None, {k: v for k, v in ain.items() if k in {i.name for i in self.acoustic.get_inputs()}})[0]
         if self.voc_mel_base != str(self.cfg.get('mel_base', '10')):
             mel = mel * (0.434294 if self.voc_mel_base == '10' else 2.30259)
         wav = self.vocoder.run(None, {'mel': mel.astype(np.float32), 'f0': f0[None]})[0][0]
-        return wav.astype(np.float32), t0, {'pitch': pitch, 'f0': f0, 'phones': phones, 'frame_ms': fm}
+        return wav.astype(np.float32), t0, {'pitch': pitch, 'f0': f0, 'phones': phones, 'frame_ms': fm,
+                                            'energy': energy[0], 'breathiness': breath[0], 'tension': tension[0]}

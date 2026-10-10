@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor · Mortiflix Singer</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="editor.css">
+</head>
+<body class="ed">
+<header class="ed-top">
+  <a class="brand" href="/">Mortiflix</a>
+  <a class="crumb" href="/singer/">Singer</a>
+  <input id="title" class="title" aria-label="Song title">
+  <label class="field">BPM <input id="bpm" type="number" min="20" max="300" step="0.1"></label>
+  <label class="field">Time <input id="ts" value="4/4" size="4"></label>
+  <span class="sep"></span>
+  <button id="play" class="btn" title="Play / stop (Space)">Play</button>
+  <button id="render" class="btn primary" title="Render every track at final quality (Ctrl+Enter)">Render</button>
+  <span id="status" class="muted status"></span>
+  <span class="grow"></span>
+  <button id="open" class="btn">Open</button>
+  <button id="save" class="btn" title="Ctrl+S">Save</button>
+  <label class="btn" title="MIDI, MusicXML, UTAU .ust, Synthesizer V .svp, Vocaloid .vsqx, .msing">Import<input id="import" type="file" hidden accept=".mid,.midi,.musicxml,.xml,.ust,.svp,.vsqx,.msing"></label>
+  <select id="export" class="btn" aria-label="Export"><option value="">Export…</option><option value="wav">WAV (mix)</option><option value="wav-track">WAV (this track)</option><option value="mid">MIDI with lyrics</option><option value="musicxml">MusicXML</option><option value="msing">Project (.msing)</option></select>
+</header>
+
+<div class="ed-body">
+  <aside class="ed-tracks">
+    <div class="pane-head">Tracks <button id="add-track" class="btn tiny">Add</button></div>
+    <div id="tracks"></div>
+  </aside>
+
+  <section class="ed-center">
+    <div class="toolbar">
+      <div class="seg" role="radiogroup" aria-label="Tool">
+        <button data-tool="select" class="on" title="Select, move, resize (V)">Select</button>
+        <button data-tool="draw" title="Draw notes (D)">Draw</button>
+        <button data-tool="pitch" title="Draw the pitch line (P)">Pitch</button>
+        <button data-tool="erase" title="Erase notes (E)">Erase</button>
+      </div>
+      <label class="field">Snap <select id="snap"><option value="1">1/4</option><option value="2" selected>1/8</option><option value="4">1/16</option><option value="3">1/8 triplet</option><option value="0">off</option></select></label>
+      <label class="field"><input type="checkbox" id="guide" checked> Guide tones</label>
+      <label class="field"><input type="checkbox" id="auto" checked> Auto-render</label>
+      <span class="grow"></span>
+      <span class="muted hint">Double-click a note to type its word · Ctrl+wheel zoom · Alt+wheel row height</span>
+    </div>
+    <div class="lyricbar">
+      <input id="lyrics" placeholder="Type a line, press Enter: the words flow onto the selected notes (sun- rise = two notes, _ = hold)">
+    </div>
+    <canvas id="roll" class="roll" tabindex="0"></canvas>
+    <div class="lanes-head">
+      <select id="lane"></select>
+      <span class="muted">paint with the mouse · right-drag erases</span>
+    </div>
+    <canvas id="lanes" class="lanes"></canvas>
+  </section>
+
+  <aside class="ed-inspector">
+    <div class="pane-head">Inspector</div>
+    <div id="inspector"></div>
+  </aside>
+</div>
+
+<dialog id="open-dlg" class="dlg">
+  <h2>Open a project</h2>
+  <div id="open-list"></div>
+  <p><button id="new" class="btn">New project</button> <button id="open-close" class="btn">Close</button></p>
+</dialog>
+<input id="lyric-edit" class="lyric-edit" hidden>
+<script type="module" src="editor/app.js"></script>
+</body>
+</html>
