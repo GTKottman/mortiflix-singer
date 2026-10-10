@@ -180,6 +180,37 @@ def from_musicxml(text: str, title='MusicXML'):
     return p
 
 
+def from_vpr(data: bytes, title='Imported'):
+    """Vocaloid 5/6 .vpr: a zip with Project/sequence.json (480 ticks per quarter; parts hold notes relative to the
+    part; tempo values are BPM x 100)."""
+    import zipfile
+    z = zipfile.ZipFile(io.BytesIO(data))
+    name = next((n for n in z.namelist() if n.lower().endswith('sequence.json')), None)
+    if not name: raise ValueError('not a Vocaloid project (no sequence.json inside)')
+    seq = json.loads(z.read(name).decode('utf-8'))
+    p = new_project(title); p['tracks'] = []
+    mt = seq.get('masterTrack', {})
+    p['tempo'] = [{'tick': int(e.get('pos', 0)), 'bpm': e.get('value', 12000) / 100} for e in (mt.get('tempo') or {}).get('events', [])] or [{'tick': 0, 'bpm': 120}]
+    sigs = (mt.get('timeSig') or {}).get('events', [])
+    if sigs:
+        p['time_sig'] = [sigs[0].get('numer', 4), sigs[0].get('denom', 4)]
+        later = [{'bar': int(e['bar']), 'num': e.get('numer', 4), 'den': e.get('denom', 4)} for e in sigs[1:] if e.get('bar', 0) > 0]
+        if later: p['meters'] = later
+    for ti, tr in enumerate(seq.get('tracks', [])):
+        if tr.get('type', 0) != 0: continue                     # audio tracks have no notes
+        notes = []
+        for part in tr.get('parts', []):
+            base = int(part.get('pos', 0))
+            for n in part.get('notes', []):
+                notes.append({**_note(base + int(n.get('pos', 0)), int(n.get('duration', 480)), int(n.get('number', 60)), n.get('lyric') or 'la'),
+                              'vel': int(n.get('velocity', 64))})
+        if notes:
+            t = new_project()['tracks'][0]; t['id'] = f't{len(p["tracks"]) + 1}'; t['name'] = tr.get('name') or f'Track {ti + 1}'
+            t['notes'] = sorted(notes, key=lambda n: n['tick']); p['tracks'].append(t)
+    if not p['tracks']: p['tracks'] = new_project()['tracks']
+    return p
+
+
 def bar_segments(project):
     """[(first bar index, start tick, num, den)]: the song's meters (time_sig from bar 0, then project['meters'] =
     [{bar, num, den}] with 0-based bar indexes)."""
@@ -244,6 +275,7 @@ def load(data: bytes, filename: str):
     ext = filename.lower().rsplit('.', 1)[-1]
     title = re.sub(r'\.[^.]+$', '', filename.rsplit('/', 1)[-1])
     if ext in ('mid', 'midi'): return from_midi(data, title)
+    if ext == 'vpr': return from_vpr(data, title)
     text = data.decode('utf-8', 'replace') if ext != 'ust' else data.decode('shift_jis', 'replace') if b'\x82' in data[:2000] else data.decode('utf-8', 'replace')
     if ext == 'ust': return from_ust(text, title)
     if ext == 'svp': return from_svp(text, title)
