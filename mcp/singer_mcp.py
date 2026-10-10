@@ -171,7 +171,7 @@ def t_lyrics(a):
 def t_set(a):
     """Track settings: voice, mode, mode_strength, gain_db, pan, transpose, expr, correct."""
     p = load(a['project']); t = next((t for t in p['tracks'] if t['id'] == a.get('track')), p['tracks'][0])
-    for k in ('voice', 'mode', 'mode_strength', 'gain_db', 'pan', 'transpose', 'name'):
+    for k in ('voice', 'mode', 'mode_strength', 'gain_db', 'pan', 'transpose', 'name', 'lang'):
         if k in a: t[k] = a[k]
     for k in ('expr', 'correct', 'steps'):
         if k in a: t['params'][k] = a[k]
@@ -204,6 +204,47 @@ def t_train(a):
             f'{"; voice ready" if s["voice"] else ""}\n{s["log"][-600:]}')
 
 
+def t_tune(a):
+    """Pitch-correct a sung WAV onto a MIDI part or a key (never moves the octave)."""
+    wav = Path(a['wav']).expanduser()
+    up = call('POST', f'/tune/upload?filename={wav.name.replace(" ", "%20")}', wav.read_bytes(), raw=True)
+    body = {'wav': up['file'], 'amount': a.get('amount', 1.0), 'speed': a.get('speed', 20), 'vibrato': a.get('vibrato', False),
+            'offset_ms': a.get('offset_ms', 0)}
+    if a.get('midi'):
+        mid = Path(a['midi']).expanduser()
+        body['notes'] = call('POST', f'/tune/upload?filename={mid.name.replace(" ", "%20")}', mid.read_bytes(), raw=True)['notes']
+    elif a.get('key'):
+        names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        root, _, scale = a['key'].partition(' ')
+        body['key'] = {'root': names.index(root.upper().replace('B', 'A#') if len(root) == 2 and root[1] == 'b' else root.upper()), 'scale': scale or 'major'}
+    else: raise ValueError('give midi (a .mid of the part) or key (e.g. "A minor")')
+    r = call('POST', '/tune', body)
+    data = call('GET', r['url'].replace('/api/singer', ''))
+    out = Path(a.get('out') or wav.with_name(wav.stem + ' (tuned).wav')).expanduser(); out.write_bytes(data)
+    rows = r.get('notes') or []
+    if rows:
+        import statistics
+        b = statistics.median(abs(x['cents_before']) for x in rows); af = statistics.median(abs(x['cents_after']) for x in rows)
+        return f'wrote {out}: {len(rows)} notes, typically {b:.0f} cents off before, {af:.0f} after'
+    return f'wrote {out}'
+
+
+def t_bridge(a):
+    """Render a project, then convert it into your voice (the bridge, until your own voice is trained)."""
+    st = call('GET', '/bridge')
+    if not st.get('available'): raise RuntimeError('no voice converter set up (robovox s2s.py)')
+    call('POST', '/bridge', {'project': load(a['project']), 'transpose': a.get('transpose', -12)})
+    t0 = time.time()
+    while time.time() - t0 < 1800:
+        st = call('GET', '/bridge')
+        if st['state'] == 'done':
+            out = Path(a.get('out') or HOME / 'out' / f'{a["project"]} (my voice).wav').expanduser(); out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(call('GET', st['url'].replace('/api/singer', ''))); return f'wrote {out} (in the voice of {Path(st["voice"]).name})'
+        if st['state'] == 'failed': raise RuntimeError(st['error'])
+        time.sleep(3)
+    raise RuntimeError('the conversion took more than 30 minutes')
+
+
 P = {'project': {'type': 'string', 'description': 'Project name (as saved in ~/MortiflixSinger/projects)'}}
 TOOLS = [
     ('voices', t_voices, 'Installed voices (range, license), downloadable voices and vocoders, vocal modes.', {}),
@@ -219,15 +260,21 @@ TOOLS = [
     ('show_project', t_show, 'A project: tempo, tracks, voices and each track\'s lyric line.', P, ['project']),
     ('set_lyrics', t_lyrics, 'Replace a track\'s words (one token per note). ' + LYRICS, {**P, 'lyrics': STR, 'track': STR}, ['project', 'lyrics']),
     ('set_track', t_set, 'Change a track: voice, mode (Default/Soft/Chest/Belt/Whisper/Robot), mode_strength (0-2), '
-                         'gain_db, pan (-1..1), transpose (semitones), expr (0 robot .. 1 natural), correct (pitch centring 0..1).',
+                         'gain_db, pan (-1..1), transpose (semitones), lang (en, la, es, it), expr (0 robot .. 1 natural), correct (pitch centring 0..1).',
      {**P, 'track': STR, 'voice': STR, 'mode': STR, 'mode_strength': NUM, 'gain_db': NUM, 'pan': NUM, 'transpose': INT,
-      'expr': NUM, 'correct': NUM, 'name': STR}, ['project']),
+      'expr': NUM, 'correct': NUM, 'name': STR, 'lang': STR}, ['project']),
     ('render', t_render, 'Render a project to a WAV (vocals; include_backing adds its backing track).',
      {**P, 'out': STR, 'include_backing': BOOL}, ['project']),
     ('check', t_check, 'Hear every word back (Whisper, phrase by phrase) and measure every note: lists unclear words and '
                        'notes more than 20 cents off, with note ids.', {**P, 'track': STR}, ['project']),
     ('export', t_export, 'Export a project as mid (with lyric events), musicxml, or msing.',
      {**P, 'format': {'type': 'string', 'enum': ['mid', 'musicxml', 'msing']}, 'out': STR}, ['project', 'format', 'out']),
+    ('tune', t_tune, 'Pitch-correct any sung WAV onto its MIDI part (midi) or a key (key, e.g. "A minor"); amount 0-1, speed ms '
+                     '(0 = hard snap, 20 = natural), vibrato true keeps the wobble. Never moves the octave.',
+     {'wav': STR, 'midi': STR, 'key': STR, 'amount': NUM, 'speed': NUM, 'vibrato': BOOL, 'offset_ms': NUM, 'out': STR}, ['wav']),
+    ('bridge', t_bridge, 'Render a project and convert it into your own voice (SoulX voice conversion; for demos, the words '
+                         'get a little smudged). transpose: semitones, default -12 for a low voice.',
+     {**P, 'transpose': INT, 'out': STR}, ['project']),
     ('training', t_train, 'Voice training status (recorded minutes, stages, log); start=true starts it.',
      {'name': STR, 'start': BOOL, 'smoke': BOOL}),
 ]
