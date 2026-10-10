@@ -188,6 +188,16 @@ def t_render(a):
 def t_check(a): return check_text(load(a['project']), a.get('track'))
 
 
+def t_fix(a):
+    """Try new takes of every phrase with unclear words, keep the clearest, save the project."""
+    p = load(a['project']); t = next((t for t in p['tracks'] if t['id'] == a.get('track')), p['tracks'][0])
+    r = call('POST', '/check/fix', {'project': p, 'track': t['id'], 'tries': a.get('tries', 3)})['phrases']
+    t['takes'] = {**(t.get('takes') or {}), **{ft: x['take'] for ft, x in r.items()}}
+    t['tone_takes'] = {**(t.get('tone_takes') or {}), **{ft: 0 for ft in r}}
+    save(a['project'], p)
+    return f'{len(r)} phrases retaken; {sum(x["unclear"] for x in r.values())} words still unclear in them\n' + check_text(p, t['id'])
+
+
 def t_export(a):
     p = load(a['project']); fmt = a['format']
     data = call('POST', '/export', {'project': p, 'format': fmt})
@@ -268,6 +278,8 @@ TOOLS = [
      {**P, 'out': STR, 'include_backing': BOOL}, ['project']),
     ('check', t_check, 'Hear every word back (Whisper, phrase by phrase) and measure every note: lists unclear words and '
                        'notes more than 20 cents off, with note ids.', {**P, 'track': STR}, ['project']),
+    ('fix_diction', t_fix, 'Try new takes of every phrase with unclear words and keep the clearest (saves the project).',
+     {**P, 'track': STR, 'tries': INT}, ['project']),
     ('export', t_export, 'Export a project as mid (with lyric events), musicxml, or msing.',
      {**P, 'format': {'type': 'string', 'enum': ['mid', 'musicxml', 'msing']}, 'out': STR}, ['project', 'format', 'out']),
     ('tune', t_tune, 'Pitch-correct any sung WAV onto its MIDI part (midi) or a key (key, e.g. "A minor"); amount 0-1, speed ms '
