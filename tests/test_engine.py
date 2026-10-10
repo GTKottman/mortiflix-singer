@@ -60,3 +60,17 @@ def test_real_render_anchors_vowels_and_tunes_notes():
         mid = p[a + (b - a) // 5: a + 4 * (b - a) // 5]
         assert abs(np.median(mid) - m) < 0.1
     assert np.abs(wav).max() > 0.01
+
+
+@pytest.mark.skipif(not VOICE.exists(), reason='no voice installed')
+def test_consonant_lead_in_is_editable():
+    v = Voice(VOICE, ROOT / 'voices/nsf_hifigan')
+    notes = [[1000.0, 450.0, 62], [1500.0, 450.0, 64]]
+    words = song.words_of(notes, ['the', 'street'], v.tokens)
+    phones, _ = v.layout(words)
+    natural = 1500.0 - next(s for p, s, e in phones if p == 's')
+    words[1].notes[0].lead = 250.0
+    phones, _ = v.layout(words)
+    s_start = next(s for p, s, e in phones if p == 's')
+    assert abs((1500.0 - s_start) - 250.0) < 1.0 and abs(natural - 250.0) > 5     # "s t r" now start 250 ms early
+    assert all(e > s for p, s, e in phones) and all(abs(a[2] - b[1]) < 1e-6 for a, b in zip(phones, phones[1:]))

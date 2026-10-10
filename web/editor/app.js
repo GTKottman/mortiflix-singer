@@ -82,6 +82,32 @@ async function render(quality = 'final') {
 }
 function status(s) { $('status').textContent = s; }
 
+// ---- retakes: a new random draw of the phrase a note is in (kept by number, so you can go back) ----
+function phraseOf(n) { return (app.renders[app.track().id] || []).find((ph) => (ph.note_ids || []).includes(n.id)); }
+function retake(n, how) {
+  const ph = phraseOf(n); if (!ph) { status('Render first, then retake'); return; }
+  app.edit(how === 0 ? 'first take' : 'retake', (p) => { const t = app.trackOf(p); t.takes = t.takes || {}; t.takes[String(ph.first_tick)] = how === 0 ? 0 : (t.takes[String(ph.first_tick)] || 0) + 1; });
+  clearTimeout(renderTimer); render('final');
+}
+
+// ---- checks: every word heard, every note measured; a click jumps to the note ----
+async function check() {
+  status('Checking: hearing every phrase…');
+  const r = await post('/check', { project: app.project(), track: app.track().id });
+  const d = await r.json(); if (!r.ok) { status(`Check failed: ${d.error}`); return; }
+  const res = d.tracks[app.track().id] || { words: [], tuning: [], summary: {} }, box = $('checks');
+  box.hidden = false; box.textContent = '';
+  const h = document.createElement('div'); h.className = 'pane-head'; h.textContent = 'Checks'; box.append(h);
+  const sum = document.createElement('p'); sum.className = 'muted';
+  sum.textContent = `${res.summary.words - res.summary.unclear} of ${res.summary.words} words clear · ${res.summary.off_notes} note${res.summary.off_notes === 1 ? '' : 's'} more than 20 cents off`;
+  box.append(sum);
+  const item = (text, ids, bad) => { const el = document.createElement('div'); el.className = `chk${bad ? ' bad' : ''}`; el.textContent = text; el.onclick = () => { app.sel = new Set(ids); const n = app.track().notes.find((m) => m.id === ids[0]); if (n) roll.scrollTo(Math.max(0, n.tick - app.project().ppq * 2)); changed('select'); }; box.append(el); };
+  for (const w of res.words.filter((x) => !x.ok)) item(`"${w.word}" unclear: heard "${w.heard}"`, w.notes, true);
+  for (const t of res.tuning) item(`${t.cents > 0 ? '+' : ''}${t.cents} cents`, [t.note], Math.abs(t.cents) > 50);
+  if (!res.words.some((x) => !x.ok) && !res.tuning.length) item('Every word clear, every note in tune.', [], false);
+  status('Checked');
+}
+
 // ---- drawing the side panes ----
 function draw() { roll?.draw(); lanes?.draw(); }
 function tracks() {
@@ -132,11 +158,15 @@ function inspector() {
     <label>Vibrato</label><input id="i-vd" type="number" min="0" max="200" step="5" title="extra depth, cents">
     <label>Vib. rate</label><input id="i-vr" type="number" min="3" max="9" step="0.1">
     <label>Vib. start</label><input id="i-vs" type="number" min="0" max="2000" step="10" title="ms after the note starts">
-    </div><p class="phones" id="i-auto"></p><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
+    <label>Lead-in</label><input id="i-lead" type="number" min="20" max="600" step="10" placeholder="auto" title="how early the consonants before the vowel start, ms">
+    </div><p><button id="i-retake" class="btn tiny" title="A new take of this phrase (R)">Retake phrase</button> <button id="i-take0" class="btn tiny">First take</button> <span id="i-take" class="muted"></span></p><p class="phones" id="i-auto"></p><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
   $('i-lyric').value = many ? '' : n.lyric || ''; $('i-ph').value = n.phonemes || ''; $('i-note').textContent = `${NAMES[n.pitch % 12]}${Math.floor(n.pitch / 12) - 1} · ${(n.dur / PPQ).toFixed(2)} beats`;
   $('i-vel').value = n.vel ?? 64; $('i-vd').value = n.vib_depth ?? 0; $('i-vr').value = n.vib_rate ?? 5.5; $('i-vs').value = n.vib_start ?? 250;
   const setn = (k, conv = (v) => v) => (e) => app.edit(k, (p) => { for (const m of app.trackOf(p).notes) if (app.sel.has(m.id)) m[k] = conv(e.target.value); });
   $('i-lyric').onchange = setn('lyric', (v) => v.trim() || 'la'); $('i-ph').onchange = setn('phonemes', (v) => v.trim() || null);
+  $('i-lead').value = n.lead ?? ''; $('i-lead').onchange = setn('lead', (v) => (v === '' ? null : Number(v)));
+  const ph = phraseOf(n); $('i-take').textContent = ph ? `take ${ph.take + 1}` : '';
+  $('i-retake').onclick = () => retake(n, +1); $('i-take0').onclick = () => retake(n, 0);
   $('i-vel').onchange = setn('vel', Number); $('i-vd').onchange = setn('vib_depth', Number); $('i-vr').onchange = setn('vib_rate', Number); $('i-vs').onchange = setn('vib_start', Number);
   if (app.syllableTrouble().has(n.id)) $('i-warn').textContent = 'This word has more syllables than notes: split it over more notes (sun- rise), or pick a shorter word.';
   if (!many && n.lyric && !/^[_+.]$/.test(n.lyric)) post('/phonemize', { voice: app.track().voice, words: [n.lyric.replace(/-$/, '')] }).then((r) => r.json()).then((d) => { const ph = Object.values(d.phonemes || {})[0]; if (ph && $('i-auto')) $('i-auto').textContent = `automatic: ${ph.join(' ')}`; }).catch(() => {});
@@ -192,7 +222,7 @@ async function init() {
   changed('select'); roll.centerOn(app.project().tracks.flatMap((t) => t.notes)); render('preview');
 
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
-  $('play').onclick = togglePlay; $('render').onclick = () => render('final');
+  $('play').onclick = togglePlay; $('render').onclick = () => render('final'); $('check').onclick = check;
   $('save').onclick = save; $('open').onclick = openDialog; $('open-close').onclick = () => $('open-dlg').close();
   $('new').onclick = () => { open(newProject('Untitled', 120)); $('open-dlg').close(); };
   $('import').onchange = async (e) => {
@@ -231,6 +261,8 @@ function keys(e) {
   else if (mod && e.key === 'y') { e.preventDefault(); app.history.redo(); }
   else if (mod && e.key === 's') { e.preventDefault(); save(); }
   else if (mod && e.key === 'Enter') { e.preventDefault(); render('final'); }
+  else if (mod && e.key === 'k') { e.preventDefault(); check(); }
+  else if ((e.key === 'r' || e.key === 'R') && !mod) { const n = t.notes.find((m) => app.sel.has(m.id)); if (n) retake(n, +1); }
   else if (mod && e.key === 'a') { e.preventDefault(); t.notes.forEach((n) => app.sel.add(n.id)); changed('select'); }
   else if (mod && e.key === 'c') { clipboard = t.notes.filter((n) => app.sel.has(n.id)).map((n) => ({ ...n })); }
   else if (mod && e.key === 'v' && clipboard?.length) {
@@ -256,7 +288,7 @@ function demo() {
 }
 // The scripting API (Synthesizer V has one; so do we): window.singer in the browser console or a script.
 window.singer = {
-  app, render, save, open, applyLyrics, togglePlay,
+  app, render, save, open, applyLyrics, togglePlay, check, retake,
   project: () => app.project(), track: () => app.track(),
   edit: (label, fn) => app.edit(label, fn),
   select: (ids) => { app.sel = new Set(ids); app.changed('select'); },

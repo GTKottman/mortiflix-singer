@@ -174,6 +174,17 @@ class Handler(BaseHTTPRequestHandler):
                         for m in phrases: m.pop('file', None); m['url'] = f"/api/singer/render/{m['hash']}.wav"
                         result[t['id']] = phrases
                 return self.send(200, {'tracks': result})
+            if path == '/check':
+                from engine.checks import check_track
+                req = json.loads(body); project = req['project']
+                out = {}
+                with self.store.render_lock:
+                    for t in project['tracks']:
+                        if req.get('track') and t['id'] != req['track'] or not t['notes']: continue
+                        v = self.store.voice(t.get('voice') or 'SPORE')
+                        phrases = render_track(v, t.get('voice') or 'SPORE', project, t, self.store.home / 'cache', 'final')
+                        out[t['id']] = check_track(project, t, phrases, diction=req.get('diction', True))
+                return self.send(200, {'tracks': out})
             if path == '/phonemize':
                 req = json.loads(body)
                 v = self.store.voice(req.get('voice') or 'SPORE')

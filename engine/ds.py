@@ -30,6 +30,7 @@ class Note:
     vib_rate: float = 5.5      # Hz
     vib_start: float = 250.0   # ms after the note starts
     energy: float = 0.0        # dB offset from velocity (127 = +6, 64 = 0, 1 = -12)
+    lead: float | None = None  # the consonants before this note's vowel last this long (ms), instead of the model's
 
 
 @dataclass
@@ -124,7 +125,23 @@ class Voice:
             pos += stretch(seg, (t1 - t0) / max(sum(seg), 1e-6), t1)
         end = groups[-1][0]
         starts = [groups[0][0]] + pos
-        phones = [(p, s, e) for p, s, e in zip(phs, starts, starts[1:] + [end])][1:]   # drop the leading SP
+        phones = [[p, s, e] for p, s, e in zip(phs, starts, starts[1:] + [end])][1:]   # drop the leading SP
+        # per-note consonant lead-in (the phoneme timing panel): squeeze or stretch the consonants just before a
+        # note's vowel so they start `lead` ms before it; the phoneme before them gives up or takes the time
+        for w in words:
+            for n in w.notes:
+                if n.lead is None: continue
+                vi = next((i for i, (p, s0, _) in enumerate(phones) if p in VOWELS and abs(s0 - n.start) < fm), None)
+                if vi is None: continue
+                ci = vi
+                while ci > 0 and phones[ci - 1][0] not in VOWELS and phones[ci - 1][0] not in ('SP', 'AP'): ci -= 1
+                if ci == vi: continue
+                old = phones[vi][1] - phones[ci][1]; new = max(20.0, float(n.lead))
+                k = new / max(old, 1e-6); t = phones[vi][1] - new
+                for j in range(ci, vi):
+                    d = (phones[j][2] - phones[j][1]) * k; phones[j][1] = t; phones[j][2] = t + d; t += d
+                if ci > 0: phones[ci - 1][2] = phones[ci][1]
+        phones = [(p, s0, e0) for p, s0, e0 in phones if e0 > s0]
         return phones, end
 
     # ---- the padded frame layout every later model shares ----

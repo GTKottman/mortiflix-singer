@@ -98,13 +98,14 @@ def track_words(voice: Voice, project, track):
             if not n: continue
             en.vib_depth = float(n.get('vib_depth') or 0); en.vib_rate = float(n.get('vib_rate') or 5.5)
             en.vib_start = float(n.get('vib_start') or 250)
+            en.lead = float(n['lead']) if n.get('lead') not in (None, '') else None
             v = n.get('vel', 64)
             en.energy = 6 * (v - 64) / 63 if v >= 64 else 12 * (v - 64) / 63
     return words, tm
 
 
 def phrase_key(voice_id, words, track, lanes_sig, params):
-    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy) for n in w.notes] + [w.phonemes] for w in words],
+    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead) for n in w.notes] + [w.phonemes] for w in words],
             'mode': track.get('mode', 'Default'), 'lanes': lanes_sig, 'p': params}
     return hashlib.sha1(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
@@ -127,7 +128,9 @@ def render_track(voice: Voice, voice_id: str, project, track, cache: Path, quali
         a = ph[0].notes[0].start - 600; b = ph[-1].notes[-1].start + ph[-1].notes[-1].dur + 600
         sig = {k: [p for p in (track.get('lanes') or {}).get(k, []) if a <= tm.to_ms(p[0]) <= b] for k in LANES}
         sig['draw'] = [p for p in (track.get('pitch_draw') or []) if a <= tm.to_ms(p[0]) <= b]
-        key = phrase_key(voice_id, ph, track, sig, {'steps': steps, 'expr': expr, 'correct': params.get('correct', 1.0)})
+        first_tick = round(tm.to_tick(ph[0].notes[0].start))
+        take = int((track.get('takes') or {}).get(str(first_tick), 0))
+        key = phrase_key(voice_id, ph, track, sig, {'steps': steps, 'expr': expr, 'correct': params.get('correct', 1.0), 'take': take})
         wav_f, meta_f = cache / f'{key}.wav', cache / f'{key}.json'
         if wav_f.exists() and meta_f.exists():
             meta = json.loads(meta_f.read_text())
@@ -137,10 +140,11 @@ def render_track(voice: Voice, voice_id: str, project, track, cache: Path, quali
             sf.write(wav_f, wav, voice.sr, subtype='FLOAT')
             fm = c['frame_ms']
             pitch = [[round(t0 + j * fm, 1), round(float(m), 3)] for j, m in enumerate(c['pitch']) if j % 2 == 0]
-            meta = {'hash': key, 'start_ms': t0, 'end_ms': t0 + len(wav) / voice.sr * 1000, 'pitch': pitch,
+            meta = {'hash': key, 'first_tick': first_tick, 'take': take, 'start_ms': t0, 'end_ms': t0 + len(wav) / voice.sr * 1000, 'pitch': pitch,
                     'phones': [[p, round(s, 1), round(e, 1)] for p, s, e in c['phones']]}
             meta_f.write_text(json.dumps(meta))
-        meta['file'] = str(wav_f)
+        meta['file'] = str(wav_f); meta['first_tick'] = first_tick; meta['take'] = take
+        meta['note_ids'] = [n['id'] for n in track['notes'] if any(abs(tm.to_ms(n['tick']) - en.start) < 0.5 for w in ph for en in w.notes)]
         out.append(meta)
         if on_phrase: on_phrase(i, meta)
     return out

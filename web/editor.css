@@ -49,3 +49,8 @@ body.ed { height: 100vh; display: flex; flex-direction: column; overflow: hidden
 select.btn { width: auto; display: inline-block; }
 .ed-top label.btn { cursor: pointer; }
 .track .row label { display: inline-flex; gap: 4px; align-items: center; }
+.checks { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 10px; }
+.chk { font-size: 13px; padding: 5px 0 5px 8px; border-left: 2px solid var(--line); margin: 4px 0; cursor: pointer; }
+.chk.bad { border-left-color: #e5484d; }
+.chk:hover { color: var(--ink); }
+.home-links { line-height: 2.2; padding-left: 18px; }
