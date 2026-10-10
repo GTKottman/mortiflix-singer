@@ -177,3 +177,12 @@ def test_tone_retake_keeps_the_pitch(tmp_path):
     pa, pb = np.array(a['pitch'])[:, 1], np.array(b['pitch'])[:, 1]
     n = min(len(pa), len(pb))
     assert b['hash'] != a['hash'] and np.abs(pa[:n] - pb[:n]).max() < 0.05      # new tone, the same pitch curve
+
+
+def test_spanish_and_italian_words():
+    from engine.lang_rules import spanish, italian
+    assert spanish('corazón') == ['k', 'ow', 'r', 'aa', 's', 'ow', 'n'] and spanish('quiero') == ['k', 'y', 'eh', 'r', 'ow']
+    assert spanish('niño') == ['n', 'iy', 'n', 'y', 'ow'] and spanish('rey') == ['r', 'eh', 'y']
+    assert italian('figlio') == ['f', 'iy', 'l', 'y', 'ow'] and italian('scena') == ['sh', 'eh', 'n', 'aa']
+    assert italian('acqua') == ['aa', 'k', 'w', 'aa'] and italian('ciao') == ['ch', 'aa', 'ow']      # sung "cia-o"
+    assert spanish('y') == ['iy'] and spanish('hoy') == ['ow', 'y']
