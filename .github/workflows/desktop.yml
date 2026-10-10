@@ -3,7 +3,7 @@
 name: desktop
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*']
     paths: ['app/**', 'web/**', 'engine/**', 'booth/**', 'server.py', 'requirements.txt', 'packaging/**', '.github/workflows/desktop.yml']
   workflow_dispatch:
