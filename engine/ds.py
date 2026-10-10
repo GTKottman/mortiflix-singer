@@ -79,6 +79,8 @@ class Voice:
         vcfg = yaml.safe_load((vdir / 'vocoder.yaml').read_text())
         self.vocoder = load(vdir / vcfg['model'])
         self.voc_mel_base = str(vcfg.get('mel_base', '10'))
+        self.voc_inputs = {i.name for i in self.vocoder.get_inputs()}
+        self.vocoder_name = vcfg.get('name', vdir.name)
         self.sr = self.cfg['sample_rate']
         self.frame_ms = 1000.0 * self.cfg['hop_size'] / self.sr
 
@@ -264,6 +266,7 @@ class Voice:
         mel = self.acoustic.run(None, {k: v for k, v in ain.items() if k in {i.name for i in self.acoustic.get_inputs()}})[0]
         if self.voc_mel_base != str(self.cfg.get('mel_base', '10')):
             mel = mel * (0.434294 if self.voc_mel_base == '10' else 2.30259)
-        wav = self.vocoder.run(None, {'mel': mel.astype(np.float32), 'f0': f0[None]})[0][0]
+        vin = {'mel': mel.astype(np.float32), 'f0': f0[None]}      # pitch-driven vocoders (NSF) take f0, others only the mel
+        wav = self.vocoder.run(None, {k: v for k, v in vin.items() if k in self.voc_inputs})[0][0]
         return wav.astype(np.float32), t0, {'pitch': pitch, 'f0': f0, 'phones': phones, 'frame_ms': fm,
                                             'energy': energy[0], 'breathiness': breath[0], 'tension': tension[0]}

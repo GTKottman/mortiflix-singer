@@ -48,17 +48,27 @@ class Store:
                 found.setdefault(d.name, d)
         return found
 
-    def vocoder_dir(self):
+    def vocoder_dir(self, want=None):
+        """The vocoder a voice asks for in its dsconfig ('vocoder: <name>'), found by its vocoder.yaml name or folder;
+        voices that don't say (or say nsf_hifigan) get the OpenVPI NSF-HiFiGAN."""
+        import yaml
+        want = want or 'nsf_hifigan'
         for base in (self.home / 'voices', HERE / 'voices'):
-            if (base / 'nsf_hifigan' / 'vocoder.yaml').exists(): return base / 'nsf_hifigan'
-        raise FileNotFoundError('no vocoder yet: install it on the Singer home page (Voices)')
+            if not base.exists(): continue
+            for y in base.glob('*/vocoder.yaml'):
+                name = (yaml.safe_load(y.read_text()) or {}).get('name', '')
+                if want in (y.parent.name, name) or (want == 'nsf_hifigan' and y.parent.name == 'nsf_hifigan'): return y.parent
+        hint = 'install it on the Singer home page (Voices)'
+        raise FileNotFoundError(f'no vocoder "{want}" yet: {hint}')
 
     def voice(self, name):
         from engine.ds import Voice
         if name not in self.voices_cache:
             dirs = self.voice_dirs()
             if name not in dirs: raise ValueError(f'no voice "{name}" (installed: {", ".join(dirs) or "none"})')
-            self.voices_cache[name] = Voice(dirs[name], self.vocoder_dir())
+            import yaml
+            want = (yaml.safe_load((dirs[name] / 'dsconfig.yaml').read_text()) or {}).get('vocoder')
+            self.voices_cache[name] = Voice(dirs[name], self.vocoder_dir(want))
         return self.voices_cache[name]
 
     def voices(self):
@@ -113,9 +123,12 @@ class Store:
 
 
 DOWNLOADS = {   # official releases only, fetched on the user's request; never bundled (their licenses are not ours)
-    'vocoder': {'title': 'NSF-HiFiGAN vocoder (OpenVPI)', 'required': True, 'size_mb': 53,
+    'vocoder': {'title': 'NSF-HiFiGAN vocoder (OpenVPI), for SPORE', 'required': True, 'size_mb': 53,
                 'url': 'https://github.com/openvpi/vocoders/releases/download/nsf-hifigan-44.1k-hop512-128bin-2024.02/nsf_hifigan_44.1k_hop512_128bin_2024.02.oudep',
                 'dest': 'nsf_hifigan', 'license': 'CC BY-NC-SA 4.0: non-commercial use only'},
+    'bigvgan': {'title': 'BigVGAN v2 vocoder (NVIDIA), for voices you train', 'required': False, 'size_mb': 455,
+                'url': 'https://github.com/GTKottman/mortiflix-singer/releases/download/vocoder-bigvgan-v2/bigvgan_v2.zip',
+                'dest': 'bigvgan_v2', 'license': 'MIT: commercial use allowed'},
     'SPORE': {'title': 'SPORE, an English voice by Knoxstation', 'required': False, 'size_mb': 300,
               'url': 'https://github.com/knoxstation/SPORE/releases/download/v.0.1.1/SPORE011.zip',
               'dest': 'SPORE', 'license': 'CC BY-NC-ND 4.0: non-commercial use only, credit Knoxstation',
@@ -130,7 +143,7 @@ class Downloads:
 
     def installed(self, key):
         d = self.store.home / 'voices' / DOWNLOADS[key]['dest']
-        return d.exists() and any(d.rglob('vocoder.yaml' if key == 'vocoder' else 'dsconfig.yaml'))
+        return d.exists() and any(d.rglob('vocoder.yaml' if key in ('vocoder', 'bigvgan') else 'dsconfig.yaml'))
 
     def status(self):
         return [{'id': k, **{x: v[x] for x in ('title', 'required', 'size_mb', 'license')}, 'terms': v.get('terms'),
@@ -157,7 +170,7 @@ class Downloads:
                         if m.startswith('/') or '..' in Path(m).parts: raise ValueError(f'unsafe path in the download: {m}')
                     z.extractall(dest)
                 tmp.unlink()
-                if key == 'vocoder':                             # the engine wants vocoder.yaml at the folder's top
+                if key in ('vocoder', 'bigvgan'):                # the engine wants vocoder.yaml at the folder's top
                     y = next(dest.rglob('vocoder.yaml')).parent
                     if y != dest:
                         for f in y.iterdir(): shutil.move(str(f), dest / f.name)

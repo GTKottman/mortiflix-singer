@@ -14,6 +14,7 @@ import yaml
 HERE = Path(__file__).parent
 DS = HERE.parent / 'ref' / 'DiffSinger'
 PY = HERE / '.venv' / 'bin' / 'python'
+VOCODER = 'bigvgan_v2_44k_128band_512x'        # see export_bigvgan.py
 PHONES = 'aa ae ah ao aw ax ay b ch d dh eh er ey f g hh ih iy jh k l m n ng ow oy p r s sh t th uh uw v w y z zh'.split()
 
 
@@ -45,6 +46,8 @@ def acoustic_config(data, work, name, steps, smoke):
     c = {'base_config': [str(DS / 'configs/acoustic.yaml')], **common(data, work, name, smoke),
          'binary_data_dir': str(work / 'binary-acoustic'),
          'vocoder': 'NsfHifiGAN', 'vocoder_ckpt': str(work / 'vocoder/model.ckpt'), 'val_with_vocoder': False,
+         # the mel range BigVGAN v2 (MIT) was trained on, so the voice sings through a vocoder anyone may use commercially
+         'fmin': 0, 'fmax': 22050,
          # the editor's lanes: expression curves the acoustic model listens to, plus gender (key shift) and velocity
          'use_energy_embed': True, 'use_breathiness_embed': True, 'use_voicing_embed': True, 'use_tension_embed': True,
          'use_key_shift_embed': True, 'use_speed_embed': True,
@@ -125,6 +128,9 @@ def package(work, name, out):
             except OSError: shutil.copy2(f, dst)
     shutil.copy2(work / 'dictionary-en.txt', out / 'dictionary-en.txt')
     (out / 'character.yaml').write_text(yaml.safe_dump({'name': name, 'text_file_encoding': 'utf-8'}))
+    cfg = yaml.safe_load((out / 'dsconfig.yaml').read_text())
+    cfg['vocoder'] = VOCODER
+    (out / 'dsconfig.yaml').write_text(yaml.safe_dump(cfg, sort_keys=False))
     return out
 
 
