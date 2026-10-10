@@ -7,7 +7,7 @@ voice package the engine loads (the same layout as SPORE: acoustic + variance ON
 Stages (each resumable; rerun the same command to continue): configs -> binarize -> acoustic -> variance -> export.
 --smoke trains tiny models for a few updates on CPU: it proves every stage runs, the voice it makes is noise.
 Runs DiffSinger from ref/DiffSinger (Apache-2.0) in the trainer/.venv environment."""
-import argparse, json, os, shutil, subprocess, sys
+import argparse, json, os, shutil, subprocess
 from pathlib import Path
 import yaml
 

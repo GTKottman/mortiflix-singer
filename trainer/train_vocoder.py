@@ -7,7 +7,7 @@ generator than BigVGAN v2's 122 M parameters). Same mel settings as your voice (
 
 Writes ~/MortiflixSinger/voices/<name>_vocoder/ (ONNX + vocoder.yaml); the voice uses it once its dsconfig says
 `vocoder: <name>_vocoder` (train.py --vocoder own does that). Resumable: rerun the same command to continue."""
-import argparse, json, math, os, random, subprocess, sys
+import argparse, json, math, os, random, subprocess
 from pathlib import Path
 
 HERE = Path(__file__).parent

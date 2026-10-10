@@ -7,11 +7,11 @@ pipeline end to end and to measure the aligner against the truth before anyone r
 Writes OUT/wavs/*.wav (44.1 kHz mono) and OUT/transcriptions.csv (DiffSinger's format)."""
 import argparse, csv, json, sys
 from pathlib import Path
-import numpy as np, soundfile as sf
+import soundfile as sf
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE.parent))
-from engine.ds import Voice, Word, Note, VOWELS, HEAD
+from engine.ds import Voice, Word, Note, VOWELS
 from engine.song import phonemes
 
 NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']

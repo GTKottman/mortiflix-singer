@@ -7,7 +7,7 @@ mel spectrogram and the NSF-HiFiGAN vocoder turns it into audio. On top of OpenU
 centred on each written note (Mortiflix Singer's correction layer) so it is in tune by construction.
 """
 from __future__ import annotations
-import json, re
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 import numpy as np
@@ -184,7 +184,6 @@ class Voice:
         pitch_override: f(ms array) -> semitones (NaN where the model's curve is kept): a drawn pitch line.
         """
         lanes, offsets = lanes or {}, offsets or {}
-        rng = np.random.default_rng(seed)
         fm = self.frame_ms
         phones, end = self.layout(words)
         segs, durs = self.segments(phones, end)

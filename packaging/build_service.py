@@ -4,7 +4,7 @@ sidecars: app/src-tauri/binaries/singer-service-<target triple>[.exe]. Run with 
 
   python packaging/build_service.py
 """
-import os, platform, shutil, subprocess, sys
+import os, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

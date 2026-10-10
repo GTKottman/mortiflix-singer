@@ -17,7 +17,7 @@ if getattr(sys, 'frozen', False):          # the desktop app's bundled service: 
 sys.path.insert(0, str(HERE))
 from booth.grade import grade
 from engine import formats
-from engine.project import render_track, mixdown, new_project, MODES, expand_groups
+from engine.project import render_track, mixdown, MODES, expand_groups
 from engine.song import phonemes as phonemize
 
 SCRIPT = json.loads((HERE / 'booth/script.json').read_text())

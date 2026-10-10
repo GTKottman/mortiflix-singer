@@ -5,10 +5,9 @@ note; "." leaves a note silent; "word{ph1 ph2 ...}" spells a word's phonemes by 
 """
 from __future__ import annotations
 import re
-from pathlib import Path
 import numpy as np
 import mido
-from .ds import Voice, Note, Word, VOWELS
+from .ds import Voice, Note, Word
 
 _g2p = None
 
