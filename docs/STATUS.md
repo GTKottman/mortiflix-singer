@@ -53,7 +53,7 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 | --- | --- | --- |
 | Train your own voice (Booth, live tuner, tone-deaf-first, one-button training) | 🟡 | the Booth follows the four sit-down sessions, reminds you to rest every 10 minutes or when takes get rougher, adds lines from your own songs (set D), and shows "Build my voice" once there is enough; every stage proven on a test set (Booth takes → dataset → models → a voice that sings); a real voice needs your recordings and hours of GPU. The desktop app installs its training kit with one button (uv, Python, PyTorch, DiffSinger; about 5 GB; flow tested with fake downloads, a real install not yet run) |
 | Commercial-clean output for your voice | ✅ | trained voices use BigVGAN v2 (MIT); slow on CPU (about 2x real time), fast on a GPU |
-| Diction, tuning and timing checks on every render | ✅ | Check button / MCP `check` |
+| Diction, tuning and timing checks on every render | ✅ | Check button / MCP `check`; "Fix unclear words" tries new takes of each unclear phrase and keeps the clearest (Undertow: 35 → 28 unclear of 149) |
 | Pitch corrector for any vocal WAV | ✅ | Tune page; real vocal 14 → 1 cents typical |
 | Mortiflix Music integration | 🟡 | `singer.py` speaks its singer interface; switching your configured singer waits for your trained voice |
 | Bridge into your voice before your model exists | ✅ | Export → "WAV in my voice" (robovox SoulX SVC); words get smudged by the conversion |
