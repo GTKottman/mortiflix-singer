@@ -78,3 +78,44 @@ def test_in_breath_line_row():
     _, row = build_dataset.rows_for('b', breathy(sr), sr, [], FakeAligner())
     seq, notes = check_row(row)
     assert seq == ['SP', 'AP', 'SP'] and notes == ['rest']
+
+
+def test_training_kit_installs_with_fake_downloads(tmp_path, monkeypatch):
+    """The whole kit install against fake downloads: sources copied, uv unpacked, DiffSinger and BigVGAN unpacked at
+    their pinned names, the venv and packages requested through uv, and a rerun skips what is done."""
+    import io, tarfile, zipfile, subprocess
+    import kit
+    root = Path(__file__).parent.parent
+
+    def tgz(name, data):
+        b = io.BytesIO()
+        with tarfile.open(fileobj=b, mode='w:gz') as t:
+            info = tarfile.TarInfo(f'uv-x/{name}'); info.size = len(data); t.addfile(info, io.BytesIO(data))
+        return b.getvalue()
+
+    def zipped(top, files):
+        b = io.BytesIO()
+        with zipfile.ZipFile(b, 'w') as z:
+            for n, d in files.items(): z.writestr(f'{top}/{n}', d)
+        return b.getvalue()
+
+    got = []
+    def fake_get(url, progress, label):
+        got.append(url)
+        if 'astral-sh/uv' in url: return tgz('uv', b'#!/bin/sh\n')
+        if 'DiffSinger' in url: return zipped(f'DiffSinger-{kit.DS_REV}', {'scripts/train.py': '', 'requirements.txt': 'click\n'})
+        return zipped(f'BigVGAN-{kit.BV_REV}', {'train.py': ''})
+    calls = []
+    def fake_run(cmd, check=False, cwd=None, **kw):
+        calls.append([str(c) for c in cmd])
+        if 'venv' in cmd:                     # uv venv: make the interpreter appear
+            py = kit.python_of(tmp_path); py.parent.mkdir(parents=True, exist_ok=True); py.write_text('')
+        return subprocess.CompletedProcess(cmd, 0)
+    monkeypatch.setattr(kit, '_get', fake_get); monkeypatch.setattr(kit.subprocess, 'run', fake_run)
+
+    k = kit.install(tmp_path, root, progress=lambda m: None)
+    assert (k / 'trainer' / 'train.py').exists() and (k / 'engine' / 'ds.py').exists() and (k / 'booth' / 'script.json').exists()
+    assert (k / 'ref' / 'DiffSinger' / 'scripts' / 'train.py').exists() and (k / 'ref' / 'BigVGAN' / 'train.py').exists()
+    assert kit.ready(tmp_path) and any('venv' in c for c in calls) and any('torch' in c for c in calls)
+    n = len(got); kit.install(tmp_path, root, progress=lambda m: None)
+    assert len(got) == n                       # nothing downloaded again

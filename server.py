@@ -214,14 +214,42 @@ class Bridge:
 
 
 MIN_MINUTES = 30        # below this a voice is too thin to be worth hours of training (DiffSinger asks for about an hour)
-TRAIN_PY = HERE / 'trainer' / '.venv' / 'bin' / 'python'
+VENV_PY = ('Scripts', 'python.exe') if os.name == 'nt' else ('bin', 'python')
+# the training sources: the checkout in development, the copy bundled inside the desktop app otherwise
+SOURCES = Path(sys._MEIPASS) / 'sources' if getattr(sys, 'frozen', False) else HERE
 
 
 class Trainer:
     """One training job at a time, in the background: Booth takes -> dataset -> DiffSinger -> a voice in voices/.
-    The job runs as its own process (PID kept, stopped by PID only) so the service stays free to render."""
+    The job runs as its own process (PID kept, stopped by PID only) so the service stays free to render. The trainer
+    runs from the checkout's trainer/ when it is set up (trainer/setup.sh), otherwise from the training kit that the
+    app installs on request (trainer/kit.py)."""
     def __init__(self, store):
         self.store, self.proc, self.name, self.gpu = store, None, None, None
+        self.kit_job = {'state': None}
+
+    def env(self):
+        """-> (python, trainer folder) or (None, None) when nothing is installed yet."""
+        dev = HERE / 'trainer'
+        if (dev / '.venv').joinpath(*VENV_PY).exists() and (HERE / 'ref' / 'DiffSinger').exists(): return dev / '.venv' / VENV_PY[0] / VENV_PY[1], dev
+        sys.path.insert(0, str(SOURCES / 'trainer'))
+        import kit
+        if kit.ready(self.store.home): return kit.python_of(self.store.home), kit.kit_dir(self.store.home) / 'trainer'
+        return None, None
+
+    def install_kit(self):
+        if self.kit_job.get('state') == 'installing': return {'started': False}
+        sys.path.insert(0, str(SOURCES / 'trainer'))
+        import kit
+        job = self.kit_job = {'state': 'installing', 'step': 'Starting', 'error': None}
+
+        def run():
+            try:
+                kit.install(self.store.home, SOURCES, progress=lambda m: job.update(step=m)); job['state'] = 'done'; self.gpu = None
+            except Exception as e:
+                job.update(state='failed', error=str(e))
+        threading.Thread(target=run, daemon=True).start()
+        return {'started': True}
 
     def work(self, name): return self.store.home / 'training' / name
 
@@ -245,7 +273,8 @@ class Trainer:
     def has_gpu(self):
         if self.gpu is None:
             import subprocess
-            try: self.gpu = subprocess.run([str(TRAIN_PY), '-c', 'import torch; print(torch.cuda.is_available())'], capture_output=True, text=True, timeout=60).stdout.strip() == 'True'
+            py, _ = self.env()
+            try: self.gpu = bool(py) and subprocess.run([str(py), '-c', 'import torch; print(torch.cuda.is_available())'], capture_output=True, text=True, timeout=60).stdout.strip() == 'True'
             except Exception: self.gpu = False
         return self.gpu
 
@@ -259,8 +288,9 @@ class Trainer:
         state = json.loads((w / 'state.json').read_text()) if (w / 'state.json').exists() else {}
         log = (w / 'train.log').read_text(errors='replace')[-6000:] if (w / 'train.log').exists() else ''
         steps = re.findall(r'steps=(\d+)', log)
+        py, _ = self.env()
         return {'name': name, 'kept': len(b['kept']), 'lines': len(SCRIPT), 'minutes': round(minutes, 1), 'min_minutes': MIN_MINUTES,
-                'installed': TRAIN_PY.exists(), 'gpu': self.has_gpu() if TRAIN_PY.exists() else False,
+                'installed': py is not None, 'kit': self.kit_job, 'gpu': self.has_gpu() if py else False,
                 'running': self.running() and self.name == name, 'busy_with': self.name if self.running() else None,
                 'state': state, 'step': int(steps[-1]) if steps else None,
                 'log': '\n'.join(l.split('\r')[-1] for l in log.splitlines()[-12:]),
@@ -269,28 +299,32 @@ class Trainer:
     def start(self, name, steps=160000, smoke=False, vocoder=False):
         import subprocess
         if self.running(): raise ValueError(f'already training "{self.name}"')
-        if not TRAIN_PY.exists(): raise ValueError('the training environment is not installed: run trainer/setup.sh')
+        py, tdir = self.env()
+        if not py: raise ValueError('the training kit is not installed yet (Training page: Install the training kit)')
         st = self.status(name)
         if not smoke and st['minutes'] < MIN_MINUTES: raise ValueError(f'{st["minutes"]} min recorded; record at least {MIN_MINUTES} min first')
         w = self.work(name); w.mkdir(parents=True, exist_ok=True)
         data = self.store.home / 'train' / name
-        script = (f'"{TRAIN_PY}" "{HERE}/trainer/build_dataset.py" --booth "{self.store.dataset(name)}" --out "{data}" '
-                  f'&& "{TRAIN_PY}" "{HERE}/trainer/train.py" --data "{data}" --name "{name}" --steps {int(steps)}'
-                  f' --voices "{self.store.home}/voices"' + (' --smoke' if smoke else ''))
+        voices = self.store.home / 'voices'
+        q = lambda x: f'"{x}"'
+        steps_ = [f'{q(py)} {q(tdir / "build_dataset.py")} --booth {q(self.store.dataset(name))} --out {q(data)}',
+                  f'{q(py)} {q(tdir / "train.py")} --data {q(data)} --name {q(name)} --steps {int(steps)} --voices {q(voices)}' + (' --smoke' if smoke else '')]
         if vocoder:      # then the voice's own small vocoder (fast on a CPU), and the voice switched to it
-            script += (f' && "{TRAIN_PY}" "{HERE}/trainer/train_vocoder.py" --data "{data}" --name "{name}" --voices "{self.store.home}/voices"'
-                       + (' --smoke' if smoke else '') +
-                       f' && "{TRAIN_PY}" "{HERE}/trainer/train.py" --data "{data}" --name "{name}" --only export --vocoder own --voices "{self.store.home}/voices"')
+            steps_ += [f'{q(py)} {q(tdir / "train_vocoder.py")} --data {q(data)} --name {q(name)} --voices {q(voices)}' + (' --smoke' if smoke else ''),
+                       f'{q(py)} {q(tdir / "train.py")} --data {q(data)} --name {q(name)} --only export --vocoder own --voices {q(voices)}']
         log = open(w / 'train.log', 'a')
-        self.proc = subprocess.Popen(['bash', '-c', script], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        group = {'creationflags': 0x00000200 | 0x08000000} if os.name == 'nt' else {'start_new_session': True}   # own group, no console
+        self.proc = subprocess.Popen(' && '.join(steps_), shell=True, stdout=log, stderr=subprocess.STDOUT, **group)
         self.name = name
         (w / 'job.pid').write_text(str(self.proc.pid))
         return {'started': True, 'pid': self.proc.pid}
 
     def stop(self):
-        import signal
+        import signal, subprocess
         if not self.running(): return {'stopped': False}
-        os.killpg(self.proc.pid if self.proc is not None else self.orphan(), signal.SIGTERM)   # its own process group: the job only
+        pid = self.proc.pid if self.proc is not None else self.orphan()
+        if os.name == 'nt': subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], capture_output=True)   # the job's tree only
+        else: os.killpg(pid, signal.SIGTERM)                                                                    # its own process group
         return {'stopped': True}
 
 
@@ -503,6 +537,7 @@ class Handler(BaseHTTPRequestHandler):
                 req = json.loads(body or b'{}')
                 return self.send(200, self.trainer.start(name, int(req.get('steps', 160000)), bool(req.get('smoke')), bool(req.get('vocoder'))))
             if path == '/train/stop': return self.send(200, self.trainer.stop())
+            if path == '/train/kit': return self.send(200, self.trainer.install_kit())
             if path == '/downloads/start': return self.send(200, self.downloads.start(q.get('id', '')))
             if path == '/booth/keep':
                 with lock:

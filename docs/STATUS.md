@@ -51,7 +51,7 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 
 | Item | | Notes |
 | --- | --- | --- |
-| Train your own voice (Booth, live tuner, tone-deaf-first, one-button training) | 🟡 | every stage proven on a test set (Booth takes → dataset → models → a voice that sings); a real voice needs your recordings and hours of GPU. In the desktop app, training needs `trainer/setup.sh` |
+| Train your own voice (Booth, live tuner, tone-deaf-first, one-button training) | 🟡 | every stage proven on a test set (Booth takes → dataset → models → a voice that sings); a real voice needs your recordings and hours of GPU. The desktop app installs its training kit with one button (uv, Python, PyTorch, DiffSinger; about 5 GB; flow tested with fake downloads, a real install not yet run) |
 | Commercial-clean output for your voice | ✅ | trained voices use BigVGAN v2 (MIT); slow on CPU (about 2x real time), fast on a GPU |
 | Diction, tuning and timing checks on every render | ✅ | Check button / MCP `check` |
 | Pitch corrector for any vocal WAV | ✅ | Tune page; real vocal 14 → 1 cents typical |

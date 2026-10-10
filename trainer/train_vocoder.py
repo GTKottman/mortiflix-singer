@@ -12,7 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 BV = HERE.parent / 'ref' / 'BigVGAN'
-PY = HERE / '.venv' / 'bin' / 'python'
+PY = HERE / '.venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
 SIZES = {'tiny': 128, 'small': 256, 'medium': 512}    # upsample_initial_channel, halved at each of 6 stages (BigVGAN v2: 1536)
 
 

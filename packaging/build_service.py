@@ -29,6 +29,9 @@ def main():
             '--add-data', f'{ROOT / "booth" / "script.json"}{sep}booth',
             '--add-data', f'{nltk_dir}{sep}nltk_data',
             '--add-data', f'{ROOT / "scripts"}{sep}scripts',
+            # the training sources, for the training kit the app installs on request (trainer/kit.py)
+            '--add-data', f'{ROOT / "trainer" / "*.py"}{sep}sources/trainer', '--add-data', f'{ROOT / "engine" / "*.py"}{sep}sources/engine',
+            '--add-data', f'{ROOT / "booth" / "script.json"}{sep}sources/booth',
             '--collect-data', 'g2p_en', '--collect-data', 'faster_whisper',
             '--collect-binaries', 'onnxruntime', '--collect-binaries', 'ctranslate2',
             '--hidden-import', 'engine.checks', '--hidden-import', 'engine.formats',

@@ -13,7 +13,7 @@ import yaml
 
 HERE = Path(__file__).parent
 DS = HERE.parent / 'ref' / 'DiffSinger'
-PY = HERE / '.venv' / 'bin' / 'python'
+PY = HERE / '.venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
 VOCODER = 'bigvgan_v2_44k_128band_512x'        # see export_bigvgan.py
 PHONES = 'aa ae ah ao aw ax ay b ch d dh eh er ey f g hh ih iy jh k l m n ng ow oy p r s sh t th uh uw v w y z zh'.split()
 
@@ -73,7 +73,9 @@ def variance_data(data, work):
     of the dataset; the wavs are shared."""
     import csv
     out = work / 'variance-data'; out.mkdir(parents=True, exist_ok=True)
-    if not (out / 'wavs').exists(): (out / 'wavs').symlink_to(data / 'wavs', target_is_directory=True)
+    if not (out / 'wavs').exists():
+        try: (out / 'wavs').symlink_to(data / 'wavs', target_is_directory=True)
+        except OSError: shutil.copytree(data / 'wavs', out / 'wavs')     # Windows without symlink rights
     rows = list(csv.DictReader(open(data / 'transcriptions.csv')))
     keep = [r for r in rows if any(n != 'rest' for n in r.get('note_seq', 'rest').split())]
     if not any('AP' in r['ph_seq'].split() for r in keep):
@@ -184,7 +186,9 @@ def main():
         if theirs.is_dir() and not theirs.is_symlink():
             for f in theirs.iterdir(): shutil.move(str(f), mine / f.name)
             theirs.rmdir()
-        if not theirs.exists(): theirs.symlink_to(mine)
+        if not theirs.exists():
+            try: theirs.symlink_to(mine)
+            except OSError: mine = theirs; mine.mkdir(parents=True, exist_ok=True)   # Windows: keep them in DiffSinger's folder
         if stage in stages:
             run(['scripts/train.py', '--config', cfg, '--exp_name', exp, *([] if any(mine.glob('*.ckpt')) else ['--reset'])], log)
             state[stage] = True; save()
