@@ -15,9 +15,9 @@ const BG: Color32 = Color32::from_rgb(20, 16, 28);
 pub fn create(params: Arc<BridgeParams>, shared: Arc<Shared>) -> Option<Box<dyn Editor>> {
     create_egui_editor(
         params.editor_state.clone(),
-        (Vec::<String>::new(), String::new()),
-        |ctx, (list, _)| { ctx.set_visuals(egui::Visuals::dark()); *list = mix::projects(); },
-        move |ctx, setter, (list, note)| {
+        (Vec::<String>::new(), String::new(), String::new()),
+        |ctx, (list, _, _)| { ctx.set_visuals(egui::Visuals::dark()); *list = Vec::new(); },
+        move |ctx, setter, (list, note, server_edit)| {
             egui::CentralPanel::default().frame(egui::Frame::default().fill(BG).inner_margin(16.0)).show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("MORTIFLIX SINGER").size(18.0).strong().color(ACCENT));
@@ -25,6 +25,17 @@ pub fn create(params: Arc<BridgeParams>, shared: Arc<Shared>) -> Option<Box<dyn 
                 });
                 ui.add_space(10.0);
                 let current = shared.project.read().map(|p| p.clone()).unwrap_or_default();
+                let server = shared.server.read().map(|p| p.clone()).unwrap_or_default();
+                if server_edit.is_empty() && !server.is_empty() { *server_edit = server.clone(); }
+                ui.horizontal(|ui| {
+                    ui.label("Renders from");
+                    let r = ui.add(egui::TextEdit::singleline(server_edit).hint_text("this computer (or http://your-pc:4747)").desired_width(250.0));
+                    if r.lost_focus() && server_edit.trim() != server {
+                        if let Ok(mut w) = shared.server.write() { *w = server_edit.trim().to_string(); }
+                        list.clear(); shared.reload.store(true, Ordering::Relaxed);
+                    }
+                });
+                if list.is_empty() { *list = if server.is_empty() { mix::projects() } else { mix::remote_projects(&server) }; }
                 ui.horizontal(|ui| {
                     ui.label("Project");
                     egui::ComboBox::from_id_salt("project")
@@ -38,7 +49,16 @@ pub fn create(params: Arc<BridgeParams>, shared: Arc<Shared>) -> Option<Box<dyn 
                                 }
                             }
                         });
-                    if ui.button("↻").on_hover_text("look for new projects").clicked() { *list = mix::projects(); }
+                    if ui.button("↻").on_hover_text("look for new projects").clicked() { list.clear(); }
+                });
+                ui.horizontal(|ui| {
+                    let base = if server.is_empty() { "http://localhost:4747".to_string() } else { server.trim_end_matches('/').to_string() };
+                    if ui.add_enabled(!current.is_empty(), egui::Button::new("Open in the editor")).clicked() {
+                        open_url(&format!("{base}/singer/editor.html?project={}", current.replace(' ', "%20")));
+                    }
+                    if ui.add_enabled(shared.mix.lock().map(|m| m.is_some()).unwrap_or(false), egui::Button::new("Bounce to WAV")).clicked() {
+                        *note = bounce(&shared, &current);
+                    }
                 });
                 ui.add_space(6.0);
                 ui.label(RichText::new(shared.status.lock().map(|s| s.clone()).unwrap_or_default()).color(DIM));
@@ -89,5 +109,26 @@ fn send(shared: &Shared, project: &str) -> String {
     match std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(dir.join(&name), capture::to_smf(&events, if bpm > 0.0 { bpm } else { 120.0 }))) {
         Ok(_) => { if let Ok(mut c) = shared.captured.lock() { c.clear(); } format!("Sent: open the editor's Inbox ({name})") }
         Err(e) => format!("Could not write the inbox: {e}"),
+    }
+}
+
+fn open_url(url: &str) {
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+}
+
+/// The vocal as a WAV from bar 1, into Documents/Mortiflix Singer, to drop on an audio track.
+fn bounce(shared: &Shared, project: &str) -> String {
+    let Some(m) = shared.mix.lock().ok().and_then(|m| m.clone()) else { return "Nothing loaded yet".into() };
+    let base = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")).unwrap_or_else(|_| ".".into());
+    let dir = std::path::PathBuf::from(base).join("Documents").join("Mortiflix Singer");
+    let path = dir.join(format!("Vocal - {project}.wav"));
+    match std::fs::create_dir_all(&dir).map_err(|e| e.to_string()).and_then(|_| mix::bounce(&m, &path)) {
+        Ok(_) => format!("Bounced: {}", path.display()),
+        Err(e) => format!("Could not bounce: {e}"),
     }
 }

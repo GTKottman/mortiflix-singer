@@ -23,6 +23,44 @@ pub fn projects() -> Vec<String> {
 
 pub fn manifest_path(project: &str) -> PathBuf { home().join("projects").join(format!("{project}.mix.json")) }
 
+// ---- a render server on another computer (e.g. a laptop without a graphics card using the PC's renders) ----
+fn enc(s: &str) -> String {
+    s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
+}
+
+pub fn remote_projects(server: &str) -> Vec<String> {
+    let url = format!("{}/api/singer/projects", server.trim_end_matches('/'));
+    let Ok(r) = ureq::get(&url).timeout(std::time::Duration::from_secs(5)).call() else { return vec![] };
+    let Ok(v) = r.into_json::<serde_json::Value>() else { return vec![] };
+    v.as_array().map(|a| a.iter().filter_map(|p| p["name"].as_str().map(String::from)).collect()).unwrap_or_default()
+}
+
+/// The server's mix file for a project (phrases carry download urls), or why not.
+pub fn remote_manifest(server: &str, project: &str) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/singer/mix/{}", server.trim_end_matches('/'), enc(project));
+    match ureq::get(&url).timeout(std::time::Duration::from_secs(10)).call() {
+        Ok(r) => r.into_json().map_err(|e| e.to_string()),
+        Err(ureq::Error::Status(404, _)) => Err("not rendered yet: render it in Mortiflix Singer".into()),
+        Err(e) => Err(format!("can't reach {server}: {e}")),
+    }
+}
+
+/// A phrase's audio: from the local cache (named by the phrase's content hash, so it never goes stale) or downloaded.
+fn fetch_phrase(server: &str, url: &str) -> Option<PathBuf> {
+    let name = url.rsplit('/').next()?.to_string();
+    let cache = home().join("plugin-cache");
+    let f = cache.join(&name);
+    if f.exists() { return Some(f); }
+    let r = ureq::get(&format!("{}{}", server.trim_end_matches('/'), url)).timeout(std::time::Duration::from_secs(60)).call().ok()?;
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut r.into_reader(), &mut bytes).ok()?;
+    std::fs::create_dir_all(&cache).ok()?;
+    let tmp = f.with_extension("part");
+    std::fs::write(&tmp, &bytes).ok()?;
+    std::fs::rename(&tmp, &f).ok()?;
+    Some(f)
+}
+
 /// Ticks <-> milliseconds through the project's tempo map.
 #[derive(Clone, Debug)]
 pub struct TempoMap { ppq: f64, ticks: Vec<f64>, bpms: Vec<f64>, ms: Vec<f64> }
@@ -86,9 +124,14 @@ fn resample(x: &[f32], from: f32, to: f32) -> Vec<f32> {
     }).collect()
 }
 
-pub fn load(project: &str, host_sr: f32) -> Result<Mix, String> {
-    let text = std::fs::read_to_string(manifest_path(project)).map_err(|_| "not rendered yet: render it in Mortiflix Singer".to_string())?;
-    let m: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("bad mix file: {e}"))?;
+/// Mix the project's phrases at the host's rate. server: "" = this computer's files, else the render server's url.
+pub fn load(project: &str, host_sr: f32, server: &str) -> Result<Mix, String> {
+    let m: serde_json::Value = if server.is_empty() {
+        let text = std::fs::read_to_string(manifest_path(project)).map_err(|_| "not rendered yet: render it in Mortiflix Singer".to_string())?;
+        serde_json::from_str(&text).map_err(|e| format!("bad mix file: {e}"))?
+    } else {
+        remote_manifest(server, project)?
+    };
     let ppq = m["ppq"].as_f64().unwrap_or(480.0);
     let tempo = TempoMap::new(ppq, m["tempo"].as_array().map(|a| a.iter().map(|p| (p["tick"].as_f64().unwrap_or(0.0), p["bpm"].as_f64().unwrap_or(120.0))).collect()).unwrap_or_default());
     let tracks = m["tracks"].as_array().cloned().unwrap_or_default();
@@ -101,7 +144,12 @@ pub fn load(project: &str, host_sr: f32) -> Result<Mix, String> {
         let pan = t["pan"].as_f64().unwrap_or(0.0) as f32;
         let (gl, gr) = (((pan + 1.0) * std::f32::consts::FRAC_PI_4).cos() * 2f32.sqrt() * g, ((pan + 1.0) * std::f32::consts::FRAC_PI_4).sin() * 2f32.sqrt() * g);
         for ph in t["phrases"].as_array().cloned().unwrap_or_default() {
-            let Some((y, sr)) = ph["file"].as_str().and_then(|f| read_wav(Path::new(f))) else { missing += 1; continue };
+            let path = match (ph["file"].as_str(), ph["url"].as_str()) {
+                (Some(f), _) => Some(PathBuf::from(f)),
+                (None, Some(u)) => fetch_phrase(server, u),
+                _ => None,
+            };
+            let Some((y, sr)) = path.and_then(|f| read_wav(&f)) else { missing += 1; continue };
             let y = resample(&y, sr as f32, host_sr);
             let start = (ph["start_ms"].as_f64().unwrap_or(0.0) / 1000.0 * host_sr as f64).round() as i64;
             let (skip, a) = if start < 0 { ((-start) as usize, 0usize) } else { (0, start as usize) };
@@ -118,6 +166,16 @@ pub fn load(project: &str, host_sr: f32) -> Result<Mix, String> {
         }
     }
     Ok(Mix { left, right, sample_rate: host_sr, tempo, phrases, missing, updated: m["updated"].as_f64().unwrap_or(0.0) })
+}
+
+/// The loaded mix as a 24-bit WAV (for printing the vocal onto an audio track).
+pub fn bounce(m: &Mix, path: &Path) -> Result<(), String> {
+    let spec = hound::WavSpec { channels: 2, sample_rate: m.sample_rate as u32, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
+    let mut w = hound::WavWriter::create(path, spec).map_err(|e| e.to_string())?;
+    for (l, r) in m.left.iter().zip(m.right.iter()) {
+        for v in [*l, *r] { w.write_sample((v.clamp(-1.0, 1.0) * 8_388_607.0) as i32).map_err(|e| e.to_string())?; }
+    }
+    w.finalize().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

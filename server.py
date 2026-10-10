@@ -376,6 +376,13 @@ class Handler(BaseHTTPRequestHandler):
                 f = self.store.home / 'backing' / m.group(1)
                 types = {'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'flac': 'audio/flac', 'ogg': 'audio/ogg'}
                 return self.send(200, f.read_bytes(), types[m.group(2)]) if f.exists() else self.send(404, {'error': 'no such backing track'})
+            if path.startswith('/mix/'):            # the DAW plugin on another computer: what to play, with download urls
+                f = self.store.project_file(path[len('/mix/'):]).with_suffix('.mix.json')
+                if not f.exists(): return self.send(404, {'error': 'not rendered yet: render it in Mortiflix Singer'})
+                mix = json.loads(f.read_text())
+                for t in mix['tracks']:
+                    for ph in t['phrases']: ph['url'] = f"/api/singer/render/{Path(ph['file']).stem}.wav"; ph.pop('file', None)
+                return self.send(200, mix)
             if path == '/scripts':                     # editor scripts: bundled examples + your own (~/MortiflixSinger/scripts)
                 out = []
                 for base, kind in ((HERE / 'scripts', 'bundled'), (self.store.home / 'scripts', 'yours')):

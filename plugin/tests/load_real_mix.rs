@@ -5,7 +5,7 @@ use mortiflix_singer_bridge::mix;
 #[test]
 fn bridge_test_project_sings_on_its_beat() {
     if !mix::manifest_path("Bridge test").exists() { eprintln!("skipped: no rendered 'Bridge test'"); return; }
-    let m = mix::load("Bridge test", 48000.0).expect("loads");
+    let m = mix::load("Bridge test", 48000.0, "").expect("loads");
     assert!(m.phrases >= 1 && m.missing == 0);
     let at = |beats: f64| (m.tempo.beats_to_ms(beats) / 1000.0 * 48000.0) as usize;
     let rms = |a: usize, b: usize| (m.left[a..b].iter().map(|x| x * x).sum::<f32>() / (b - a) as f32).sqrt();

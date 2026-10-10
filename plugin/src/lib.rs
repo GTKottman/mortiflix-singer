@@ -14,6 +14,7 @@ pub mod mix;
 /// What the loader thread, the audio thread and the editor share.
 pub struct Shared {
     pub project: Arc<RwLock<String>>,
+    pub server: Arc<RwLock<String>>,
     pub mix: Mutex<Option<Arc<mix::Mix>>>,
     pub status: Mutex<String>,
     pub host_sr: AtomicU32,
@@ -29,6 +30,9 @@ pub struct BridgeParams {
     pub editor_state: Arc<EguiState>,
     #[persist = "project"]
     pub project: Arc<RwLock<String>>,
+    /// "" = render files on this computer; else a render server (e.g. http://my-pc:4747) whose renders are fetched
+    #[persist = "server"]
+    pub server: Arc<RwLock<String>>,
     #[id = "gain"]
     pub gain: FloatParam,
     #[id = "capture"]
@@ -46,15 +50,18 @@ pub struct Bridge {
 impl Default for Bridge {
     fn default() -> Self {
         let project = Arc::new(RwLock::new(String::new()));
+        let server = Arc::new(RwLock::new(String::new()));
         let params = Arc::new(BridgeParams {
             editor_state: EguiState::from_size(520, 360),
             project: project.clone(),
+            server: server.clone(),
             gain: FloatParam::new("Gain", 0.0, FloatRange::Linear { min: -30.0, max: 12.0 })
                 .with_unit(" dB").with_step_size(0.1).with_smoother(SmoothingStyle::Linear(30.0)),
             capture: BoolParam::new("Capture MIDI", false),
         });
         let shared = Arc::new(Shared {
             project,
+            server,
             mix: Mutex::new(None),
             status: Mutex::new("Pick a project".into()),
             host_sr: AtomicU32::new(44100f32.to_bits()),
@@ -69,19 +76,30 @@ impl Default for Bridge {
 
 /// Watches the chosen project's mix file and reloads it when it changes (or the project or sample rate does).
 fn loader(shared: Arc<Shared>) {
-    let mut seen: Option<(String, std::time::SystemTime, u32)> = None;
+    let mut seen: Option<(String, String, String, u32)> = None;
+    let mut last_remote = std::time::Instant::now() - std::time::Duration::from_secs(10);
     while !shared.stop.load(Ordering::Relaxed) {
         let project = shared.project.read().map(|p| p.clone()).unwrap_or_default();
+        let server = shared.server.read().map(|p| p.trim().to_string()).unwrap_or_default();
         let sr_bits = shared.host_sr.load(Ordering::Relaxed);
         if project.is_empty() {
             *shared.status.lock().unwrap() = "Pick a project".into();
             *shared.mix.lock().unwrap() = None;
             seen = None;
         } else {
-            let mtime = std::fs::metadata(mix::manifest_path(&project)).and_then(|m| m.modified()).ok();
-            let key = mtime.map(|t| (project.clone(), t, sr_bits));
-            if shared.reload.swap(false, Ordering::Relaxed) || key != seen {
-                let st = match mix::load(&project, f32::from_bits(sr_bits)) {
+            let forced = shared.reload.swap(false, Ordering::Relaxed);
+            // what changes when a new render lands: the mix file's time (here) or its "updated" stamp (on a server, asked every 2 s)
+            let stamp = if server.is_empty() {
+                std::fs::metadata(mix::manifest_path(&project)).and_then(|m| m.modified()).ok().map(|t| format!("{t:?}"))
+            } else if forced || last_remote.elapsed().as_secs() >= 2 {
+                last_remote = std::time::Instant::now();
+                mix::remote_manifest(&server, &project).ok().map(|m| m["updated"].to_string())
+            } else {
+                seen.as_ref().map(|s| s.2.clone())
+            };
+            let key = stamp.map(|t| (project.clone(), server.clone(), t, sr_bits));
+            if forced || key != seen {
+                let st = match mix::load(&project, f32::from_bits(sr_bits), &server) {
                     Ok(m) => {
                         let s = format!("{} phrases, {:.0} s{}", m.phrases, m.left.len() as f32 / m.sample_rate,
                                         if m.missing > 0 { format!(" ({} not rendered: render again)", m.missing) } else { String::new() });
