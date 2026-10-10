@@ -53,3 +53,21 @@ jobs:
           name: mortiflix-singer-plugin-${{ matrix.os }}
           path: plugin/target/bundled/*
           if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist }
+      - name: Zip each system's plugins
+        run: |
+          cd dist
+          for d in mortiflix-singer-plugin-*; do (cd "$d" && zip -qr "../${d/mortiflix-singer-plugin-/Mortiflix-Singer-plugin-}.zip" .); done
+          ls -la
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          draft: true
