@@ -77,3 +77,4 @@ select.btn { width: auto; display: inline-block; }
 .tempo { margin-bottom: 14px; font-size: 12px; color: var(--muted); }
 .tempo .row { display: flex; gap: 5px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
 .tempo input.num { width: 56px; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 5px; font-size: 12px; padding: 2px 4px; }
+#midi.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

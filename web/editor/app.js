@@ -143,6 +143,47 @@ async function phonemeTiming(n) {
   if (w.first.ph_scale) { const r = document.createElement('button'); r.className = 'btn tiny'; r.textContent = 'Reset lengths'; r.onclick = () => app.edit('phoneme length', (p) => { const f = app.trackOf(p).notes.find((m) => m.id === w.first.id); if (f) f.ph_scale = null; }); box.append(r); }
 }
 
+// ---- MIDI keyboard step input: with "MIDI in" on, each key played adds a note at the playhead (the snap length,
+// or as long as the key is held when the snap is off) and moves the playhead on; a chord keeps its top note ----
+const midiIn = { access: null, held: new Map(), on: false };
+async function toggleMidi() {
+  midiIn.on = !midiIn.on; $('midi').classList.toggle('on', midiIn.on);
+  if (!midiIn.on) { status('MIDI input off'); return; }
+  if (!navigator.requestMIDIAccess) { status('This browser has no MIDI access'); midiIn.on = false; $('midi').classList.remove('on'); return; }
+  try { midiIn.access = midiIn.access || await navigator.requestMIDIAccess(); } catch { status('MIDI access was refused'); midiIn.on = false; $('midi').classList.remove('on'); return; }
+  const hook = () => { for (const i of midiIn.access.inputs.values()) i.onmidimessage = onMidi; };
+  hook(); midiIn.access.onstatechange = hook;
+  const names = [...midiIn.access.inputs.values()].map((i) => i.name);
+  status(names.length ? `MIDI input: ${names.join(', ')}. Play to add notes at the playhead.` : 'MIDI input on: no keyboard connected');
+}
+function onMidi(e) {
+  if (!midiIn.on) return;
+  const [st, note, vel] = e.data, kind = st & 0xf0;
+  if (kind === 0x90 && vel > 0) {
+    player.preview(note);
+    const now = performance.now(), chord = midiIn.last && now - midiIn.last.at < 40;   // keys within 40 ms = one chord
+    const at = chord ? midiIn.last.tick : app.playTick;
+    midiIn.last = { tick: at, at: now };
+    midiIn.held.set(note, { tick: at, at: now, vel });
+    if (app.snapTicks()) stepNote(note, app.snapTicks(), vel, at);
+  } else if ((kind === 0x80 || (kind === 0x90 && vel === 0)) && midiIn.held.has(note)) {
+    const h = midiIn.held.get(note); midiIn.held.delete(note);
+    if (!app.snapTicks()) {               // free length: as long as the key was held, at the song tempo
+      const ms = performance.now() - h.at, tm = tempoMap(app.project());
+      stepNote(note, Math.max(PPQ / 8, Math.round(tm.toTick(tm.toMs(h.tick) + ms) - h.tick)), h.vel, h.tick);
+    }
+  }
+}
+function stepNote(pitch, dur, vel, at = app.playTick) {
+  const t = app.track(), clash = t.notes.find((n) => n.tick === at);
+  if (clash && clash.pitch >= pitch) return;                       // a chord: the top note is the melody
+  app.edit('MIDI note', (p) => {
+    const tr = app.trackOf(p); tr.notes = tr.notes.filter((n) => n.tick !== at);
+    tr.notes.push({ id: uid(), tick: at, dur, pitch, lyric: 'la', vel: Math.round(vel) });
+  });
+  app.seek(at + dur);
+}
+
 // ---- drawing the side panes ----
 function draw() { roll?.draw(); lanes?.draw(); }
 function tracks() {
@@ -333,6 +374,7 @@ async function init() {
   changed('select'); roll.centerOn(app.project().tracks.flatMap((t) => t.notes)); render('preview');
 
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
+  $('midi').onclick = toggleMidi;
   $('play').onclick = togglePlay; $('render').onclick = () => render('final'); $('check').onclick = check;
   $('save').onclick = save; $('open').onclick = openDialog; $('open-close').onclick = () => $('open-dlg').close();
   $('new').onclick = () => { open(newProject('Untitled', 120)); $('open-dlg').close(); };
@@ -403,7 +445,7 @@ function demo() {
 }
 // The scripting API (Synthesizer V has one; so do we): window.singer in the browser console or a script.
 window.singer = {
-  app, render, save, open, applyLyrics, togglePlay, check, retake,
+  app, render, save, open, applyLyrics, togglePlay, check, retake, midiNote: (pitch, vel = 90) => stepNote(pitch, app.snapTicks() || PPQ / 2, vel),
   project: () => app.project(), track: () => app.track(),
   edit: (label, fn) => app.edit(label, fn),
   select: (ids) => { app.sel = new Set(ids); app.changed('select'); },
