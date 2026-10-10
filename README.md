@@ -4,22 +4,31 @@ An open singing-voice synthesizer: write notes and lyrics (or bring a MIDI part)
 voice, in tune and in time. Train your own voice with the built-in recording booth, made for people who can't sing in
 tune. Runs on Windows, macOS and Linux; a VST3/CLAP/AU plugin brings it into your DAW.
 
-**Status: early development.** Working today (Linux, developer preview):
+**Status: early development, everything below works.** Where each Synthesizer V feature stands, with the test that
+shows it: [docs/STATUS.md](docs/STATUS.md). Decisions made along the way: [docs/DECISIONS.md](docs/DECISIONS.md).
 
-- **Engine:** drives DiffSinger voice models: notes + words -> phonemes -> durations -> a natural pitch curve centred
-  on every note -> breath and tension -> spectrogram -> audio. Breaths, vibrato, per-note dynamics and consonant timing.
-- **Editor** (web): piano roll with words on the notes, pitch drawing, expression lanes (energy, breathiness, voicing,
-  tension, gender, velocity), vocal modes, retakes, multiple tracks, checks (every word heard back, every note
-  measured), import MIDI / UST / SVP / VSQX / MusicXML, export WAV / MIDI / MusicXML.
-- **Booth** (web): 582 lines to record with a live tuner, graded for steadiness and clear words, never for being in tune.
-- **Training:** Booth takes -> aligned, labelled dataset -> DiffSinger acoustic + variance models -> a voice the editor
-  sings with. Proven end to end on a small test run; a real voice needs about an hour of takes and a graphics card.
+- **Editor:** piano roll with words on the notes; lyrics typed as a line; phonemes per note with draggable lengths;
+  pitch drawing (snaps to the key), vibrato, glides, scoop and overshoot per note; lanes for energy, breathiness,
+  voicing, tension, gender and velocity; vocal modes (yours too); separate pitch and tone retakes with every take kept;
+  note groups; tempo and time-signature changes; loops and markers; a backing track to sing against; MIDI keyboard
+  input; scripts; English, Latin, Spanish and Italian.
+- **Checks:** every word heard back and every note measured, linked to the note.
+- **Import / export:** MIDI (with lyrics), MusicXML, UTAU, Synthesizer V, Vocaloid (.vsqx, .vpr); WAV at 44.1/48 kHz.
+- **Booth:** 582 lines to record with a live tuner, graded for steadiness and clear words, never for being in tune.
+- **Training:** your Booth takes become your voice (and optionally your own fast vocoder), nothing non-commercial in it.
+- **Tune:** put any sung vocal in tune, onto its MIDI or a key, without the chipmunk effect.
+- **Desktop app** for Windows, macOS and Linux; **plugin** (VST3, CLAP, AU) that plays your vocals in time with the DAW.
 
-## Try it (Linux, developer preview)
+## Install
+
+Installers for Windows (.msi / .exe), macOS (.dmg) and Linux (.AppImage / .deb) are built by GitHub Actions on every
+change (Actions tab, artifacts) and attached to releases. On first start the app offers the vocoder and a starter
+voice (SPORE, non-commercial) from their makers' releases; your own trained voice needs nothing else.
+
+## Try it from the command line (developer preview)
 
 ```bash
-uv venv -p 3.12 .venv && uv pip install -p .venv/bin/python onnxruntime numpy soundfile scipy pyyaml g2p_en mido
-# a DiffSinger voice package in voices/<name>/ and the OpenVPI NSF-HiFiGAN vocoder in voices/nsf_hifigan/
+uv venv -p 3.12 .venv && uv pip install -p .venv/bin/python -r requirements.txt
 .venv/bin/python singer.py --midi part.mid --lyrics "Ride the light, feel the heat, chrome sun- rise now" --out vocal.wav
 ```
 
