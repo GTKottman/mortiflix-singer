@@ -73,13 +73,13 @@ export class Roll {
       return;
     }
     if (app.selRef) { app.selRef = null; app.changed('select'); }
-    if (tool === 'erase') { if (n) app.edit('erase note', (p) => { const t = app.trackOf(p); t.notes = t.notes.filter((m) => m.id !== n.id); }); return; }
+    if (tool === 'erase') { if (n && !n.lock) app.edit('erase note', (p) => { const t = app.trackOf(p); t.notes = t.notes.filter((m) => m.id !== n.id); }); return; }
     if (tool === 'pitch') { this.drag = { kind: 'pitch', pts: [[this.T(x), this.pitchAtY(y, e.altKey)]] }; return; }
     if (n) {
       if (!app.sel.has(n.id)) { if (!e.shiftKey) app.sel.clear(); app.sel.add(n.id); }
       else if (e.shiftKey) { app.sel.delete(n.id); app.changed('select'); return; }
       const edge = this.X(n.tick + n.dur) - x < 7;
-      this.drag = { kind: edge ? 'resize' : 'move', start: { x, y }, note: n, orig: this.notes().filter((m) => app.sel.has(m.id)).map((m) => ({ id: m.id, tick: m.tick, dur: m.dur, pitch: m.pitch })), moved: false };
+      this.drag = { kind: edge ? 'resize' : 'move', start: { x, y }, note: n, orig: this.notes().filter((m) => app.sel.has(m.id) && !m.lock).map((m) => ({ id: m.id, tick: m.tick, dur: m.dur, pitch: m.pitch })), moved: false };
       app.changed('select'); app.previewPitch(n.pitch);
       return;
     }
@@ -267,6 +267,7 @@ export class Roll {
       const sel = this.app.sel.has(n.id);
       g.fillStyle = tooMany.has(n.id) ? '#e5484d' : accent; g.globalAlpha = sel ? 0.85 : 0.45; g.fillRect(x + 0.5, y + 1, w - 1, this.rowH - 2); g.globalAlpha = 1;
       if (sel) { g.strokeStyle = ink; g.lineWidth = 1.5; g.strokeRect(x + 0.5, y + 1, w - 1, this.rowH - 2); }
+      if (n.lock) { g.fillStyle = ink; g.globalAlpha = 0.7; g.fillRect(x + w - 6, y + 3, 3, this.rowH - 6); g.globalAlpha = 1; }
       g.save(); g.beginPath(); g.rect(x, y, w, this.rowH); g.clip();
       g.fillStyle = ink; g.font = `${Math.min(13, this.rowH - 3)}px Sora, sans-serif`; g.fillText(n.lyric || '', x + 4, y + this.rowH - 4); g.restore();
     }

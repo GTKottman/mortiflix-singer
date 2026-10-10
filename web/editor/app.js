@@ -433,6 +433,7 @@ function inspector() {
     <label>Phonemes</label><input id="i-ph" placeholder="automatic">
     <label>Note</label><span id="i-note"></span>
     <label>Velocity</label><input id="i-vel" type="number" min="1" max="127">
+    <label>Lock</label><input id="i-lock" type="checkbox" title="a locked note can't be moved, stretched or deleted">
     <label>Vibrato</label><input id="i-vd" type="number" min="0" max="200" step="5" title="extra depth, cents">
     <label>Vib. rate</label><input id="i-vr" type="number" min="3" max="9" step="0.1">
     <label>Vib. start</label><input id="i-vs" type="number" min="0" max="2000" step="10" title="ms after the note starts">
@@ -459,6 +460,7 @@ function inspector() {
   $('i-ptake').disabled = $('i-ttake').disabled = !ph;
   $('i-ptake').onchange = (e) => retake(n, Number(e.target.value), 'pitch'); $('i-ttake').onchange = (e) => retake(n, Number(e.target.value), 'tone');
   $('i-retake').onclick = () => retake(n, +1, 'pitch'); $('i-retone').onclick = () => retake(n, +1, 'tone');
+  $('i-lock').checked = !!n.lock; $('i-lock').onchange = (e) => app.edit('lock', (p) => { for (const m of app.trackOf(p).notes) if (app.sel.has(m.id)) m.lock = e.target.checked; });
   $('i-vel').onchange = setn('vel', Number); $('i-vd').onchange = setn('vib_depth', Number); $('i-vr').onchange = setn('vib_rate', Number); $('i-vs').onchange = setn('vib_start', Number);
   if (app.syllableTrouble().has(n.id)) {
     $('i-warn').textContent = 'This word has more syllables than notes: split it over more notes (sun- rise), or pick a shorter word. ';
@@ -696,9 +698,9 @@ function keys(e) {
   else if ((e.key === 'l' || e.key === 'L') && !mod) toggleLoop();
   else if (e.key === ';' && !mod) addMarker();
   else if ((e.key === 'm' || e.key === 'M') && !mod) mergeSel();
-  else if (e.key === 'Delete' || e.key === 'Backspace') { app.edit('delete notes', (p) => { const x = app.trackOf(p); x.notes = x.notes.filter((n) => !app.sel.has(n.id)); }); app.sel.clear(); }
-  else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1); app.edit('transpose notes', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id)) n.pitch += d; }); }
-  else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const d = (e.key === 'ArrowRight' ? 1 : -1) * (app.snapTicks() || PPQ / 4); app.edit('nudge notes', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id)) n.tick = Math.max(0, n.tick + d); }); }
+  else if (e.key === 'Delete' || e.key === 'Backspace') { app.edit('delete notes', (p) => { const x = app.trackOf(p); x.notes = x.notes.filter((n) => !app.sel.has(n.id) || n.lock); }); app.sel.clear(); }
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1); app.edit('transpose notes', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id) && !n.lock) n.pitch += d; }); }
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const d = (e.key === 'ArrowRight' ? 1 : -1) * (app.snapTicks() || PPQ / 4); app.edit('nudge notes', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id) && !n.lock) n.tick = Math.max(0, n.tick + d); }); }
   else if (e.key === 'q' || e.key === 'Q') { const s = app.snapTicks() || PPQ / 4; app.edit('quantize', (p) => { for (const n of app.trackOf(p).notes) if (app.sel.has(n.id)) { n.tick = Math.round(n.tick / s) * s; n.dur = Math.max(s, Math.round(n.dur / s) * s); } }); }
   else if (e.key === 'Home') { app.seek(0); roll.scrollTo(0); }
   else if (e.key === 'Escape') { app.sel.clear(); changed('select'); }
