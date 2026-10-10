@@ -48,8 +48,14 @@ def main():
                '--checkpoint_path', str(work / 'ckpt'), '--training_epochs', str(epochs),
                '--checkpoint_interval', str(min(5000, steps)), '--validation_interval', str(10 ** 9), '--debug', 'True']
         print('$', ' '.join(cmd), flush=True)
+        # BigVGAN's trainer imports pesq only for validation scores (off here); where it isn't installed (it needs a C
+        # compiler), a stand-in module satisfies the import
+        stub = work / 'stubs'; stub.mkdir(exist_ok=True)
+        (stub / 'pesq.py').write_text('def pesq(*a, **k):\n    raise RuntimeError("pesq is not installed")\n')
+        has_pesq = subprocess.run([str(PY), '-c', 'import pesq'], capture_output=True).returncode == 0
+        path = os.pathsep.join([str(BV)] + ([] if has_pesq else [str(stub)]))
         with open(work / 'train.log', 'a') as log:
-            r = subprocess.run(cmd, cwd=BV, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONPATH': str(BV)})
+            r = subprocess.run(cmd, cwd=BV, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, 'PYTHONPATH': path})
         if r.returncode: raise SystemExit(f'training failed: see {work / "train.log"}')
     # export the newest generator checkpoint
     ckpts = sorted((work / 'ckpt').glob('g_*'))

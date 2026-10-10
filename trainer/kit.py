@@ -15,7 +15,7 @@ UV_VERSION = '0.12.18'
 DS_REV = 'ba031f6f2f969373b49a926cf8b007e9ae48834f'
 BV_REV = '7d2b454564a6c7d014227f635b7423881f14bdac'      # BigVGAN (MIT): the own-vocoder stage
 DEPS = ['soundfile', 'soxr', 'g2p_en', 'mido', 'onnxruntime', 'transformers', 'setuptools<81', 'pyworld', 'pyyaml',
-        'pesq', 'auraloss', 'nnAudio', 'huggingface_hub']
+        'auraloss', 'nnAudio', 'huggingface_hub']      # no pesq: source-only (needs a compiler); see train_vocoder.py
 
 
 def kit_dir(home: Path) -> Path: return home / 'kit'
