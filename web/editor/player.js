@@ -25,6 +25,17 @@ export class Player {
     const soloed = p.tracks.some((t) => t.solo);
     const lead = 0.12, t0 = ctx.currentTime + lead;
     this.startAt = t0; this.startMs = from; this.playing = true;
+    const bk = p.backing;
+    if (bk?.file && !bk.mute && !soloed) {                    // the instrumental, in sync, under the vocals
+      const g = ctx.createGain(); g.gain.value = 10 ** ((bk.gain_db || 0) / 20); g.connect(this.out); this.nodes.push(g);
+      this.buffer(`${this.app.api}/backing/${bk.file}`).then((buf) => {
+        if (!this.playing) return;
+        const src = ctx.createBufferSource(); src.buffer = buf; src.connect(g);
+        const when = t0 + ((bk.offset_ms || 0) - from) / 1000;
+        if (when >= ctx.currentTime) src.start(when); else if (ctx.currentTime - when < buf.duration) src.start(ctx.currentTime, ctx.currentTime - when);
+        this.nodes.push(src);
+      });
+    }
     for (const t of p.tracks) {
       if (t.mute || (soloed && !t.solo)) continue;
       const g = ctx.createGain(); g.gain.value = 10 ** ((t.gain_db || 0) / 20);

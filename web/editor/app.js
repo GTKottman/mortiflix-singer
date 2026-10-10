@@ -13,7 +13,7 @@ const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const midiOf = (s) => { const m = /^([A-G]#?)(-?\d)$/.exec(s || ''); return m ? 12 * (Number(m[2]) + 1) + NAMES.indexOf(m[1]) : null; };
 
 const app = {
-  history: null, sel: new Set(), tool: 'select', renders: {}, playTick: 0, guide: true, trackId: null, voices: [], modes: [], name: null, dirty: false,
+  api: API, history: null, sel: new Set(), tool: 'select', renders: {}, playTick: 0, guide: true, trackId: null, voices: [], modes: [], name: null, dirty: false,
   project() { return this.history.p; },
   track() { return this.project().tracks.find((t) => t.id === this.trackId) || this.project().tracks[0]; },
   trackOf(p) { return p.tracks.find((t) => t.id === this.trackId) || p.tracks[0]; },
@@ -135,6 +135,34 @@ function tracks() {
     box.append(el);
   }
 }
+function backing() {
+  const box = $('backing'), bk = app.project().backing; box.textContent = '';
+  const pick = document.createElement('label'); pick.className = 'btn tiny'; pick.textContent = bk ? 'Replace' : 'Add music to sing against';
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'audio/*'; inp.hidden = true; pick.append(inp);
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return; status(`Loading ${f.name}…`);
+    const r = await post(`/backing?filename=${encodeURIComponent(f.name)}`, await f.arrayBuffer(), true), d = await r.json();
+    if (!r.ok) { status(`Backing track failed: ${d.error}`); return; }
+    app.edit('backing track', (p) => { p.backing = { file: d.file, name: d.name, gain_db: p.backing?.gain_db ?? -6, offset_ms: p.backing?.offset_ms ?? 0, mute: false }; });
+    status(`Backing track: ${d.name}`);
+  };
+  if (!bk) { box.append(pick); return; }
+  const el = document.createElement('div'); el.className = 'track';
+  el.innerHTML = `<div class="name"></div><div class="row"><span class="ms m" title="mute">M</span>
+    <label title="volume in dB">dB <input class="gain num" type="number" step="0.5"></label>
+    <label title="move it later (+) or earlier (−) against the vocals, ms">Offset <input class="off num" type="number" step="10"></label></div>`;
+  el.querySelector('.name').textContent = bk.name;
+  el.querySelector('.m').classList.toggle('on', !!bk.mute);
+  el.querySelector('.gain').value = bk.gain_db ?? 0; el.querySelector('.off').value = bk.offset_ms ?? 0;
+  const set = (label, k, v) => app.edit(label, (p) => { p.backing[k] = v; });
+  el.querySelector('.m').onclick = () => set('mute backing', 'mute', !bk.mute);
+  el.querySelector('.gain').onchange = (e) => set('backing volume', 'gain_db', Number(e.target.value));
+  el.querySelector('.off').onchange = (e) => set('backing offset', 'offset_ms', Number(e.target.value));
+  const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = 'Remove';
+  rm.onclick = () => app.edit('remove backing', (p) => { delete p.backing; });
+  const row = document.createElement('div'); row.className = 'row'; row.append(pick, rm); el.append(row);
+  box.append(el);
+}
 function inspector() {
   const box = $('inspector'), t = app.track(); box.textContent = '';
   const sel = t.notes.filter((n) => app.sel.has(n.id));
@@ -177,8 +205,8 @@ function changed(label) {
   app.dirty = true; store.set('singer-autosave', { name: app.name, project: app.project() });
   if (!app.project().tracks.some((t) => t.id === app.trackId)) app.trackId = app.project().tracks[0].id;
   $('title').value = app.project().title || ''; $('bpm').value = app.project().tempo[0].bpm; $('ts').value = app.project().time_sig.join('/');
-  tracks(); inspector(); draw();
-  if (!['select'].includes(label)) scheduleRender();
+  tracks(); backing(); inspector(); draw();
+  if (!['select'].includes(label) && !/backing/.test(label || '')) scheduleRender();
 }
 function open(project, name = null) {
   app.name = name; app.history.replace(project, 'open'); app.trackId = project.tracks[0]?.id; app.sel.clear(); app.renders = {};
@@ -224,10 +252,10 @@ async function openDialog() {
 async function download(kind) {
   status(kind.startsWith('wav') ? 'Rendering the mix…' : 'Exporting…');
   const fmt = kind.startsWith('wav') ? 'wav' : kind;
-  const r = await post('/export', { project: app.project(), format: fmt, track: kind === 'wav-track' ? app.track().id : null, bits: 24 });
+  const r = await post('/export', { project: app.project(), format: fmt, track: kind === 'wav-track' ? app.track().id : null, bits: 24, include_backing: kind === 'wav-full' });
   if (!r.ok) { status(`Export failed: ${(await r.json()).error}`); return; }
   const blob = await r.blob(), a = document.createElement('a'), ext = { wav: 'wav', mid: 'mid', musicxml: 'musicxml', msing: 'msing' }[fmt];
-  a.href = URL.createObjectURL(blob); a.download = `${app.project().title || 'song'}${kind === 'wav-track' ? ` - ${app.track().name}` : ''}.${ext}`; a.click();
+  a.href = URL.createObjectURL(blob); a.download = `${app.project().title || 'song'}${kind === 'wav-track' ? ` - ${app.track().name}` : kind === 'wav-full' ? ' (with music)' : ''}.${ext}`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000); status(`Exported ${a.download}`);
 }
 

@@ -267,6 +267,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/booth/progress': return self.send(200, self.store.progress(name))
             if path == '/train/status': return self.send(200, self.trainer.status(name))
             if path == '/downloads': return self.send(200, self.downloads.status())
+            if (m := re.match(r'^/backing/([0-9a-f]{40}\.(wav|mp3|flac|ogg))$', path)):
+                f = self.store.home / 'backing' / m.group(1)
+                types = {'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'flac': 'audio/flac', 'ogg': 'audio/ogg'}
+                return self.send(200, f.read_bytes(), types[m.group(2)]) if f.exists() else self.send(404, {'error': 'no such backing track'})
             if path == '/inbox':                       # MIDI sent from the DAW plugin
                 d = self.store.home / 'inbox'
                 files = sorted(d.glob('*.mid'), key=lambda f: -f.stat().st_mtime) if d.exists() else []
@@ -340,6 +344,16 @@ class Handler(BaseHTTPRequestHandler):
                 project = json.loads(body)
                 tmp = f.with_suffix('.tmp'); tmp.write_text(json.dumps(project)); tmp.replace(f)
                 return self.send(200, {'ok': True, 'name': f.stem})
+            if path == '/backing':                     # an instrumental to sing against: stored by content, played in sync
+                import hashlib
+                ext = Path(q.get('filename', 'x.wav')).suffix.lower().lstrip('.')
+                if ext not in ('wav', 'mp3', 'flac', 'ogg'): return self.send(400, {'error': 'use a WAV, MP3, FLAC or OGG file'})
+                d = self.store.home / 'backing'; d.mkdir(parents=True, exist_ok=True)
+                f = d / f'{hashlib.sha1(body).hexdigest()}.{ext}'
+                if not f.exists(): f.write_bytes(body)
+                try: dur = sf.info(f).duration
+                except Exception: dur = None
+                return self.send(200, {'file': f.name, 'name': q.get('filename', f.name), 'duration': dur})
             if path == '/import':
                 return self.send(200, formats.load(body, q.get('filename', 'file.mid')))
             if path == '/export':
@@ -355,6 +369,17 @@ class Handler(BaseHTTPRequestHandler):
                         results[t['id']] = render_track(v, t.get('voice') or 'SPORE', project, t, self.store.home / 'cache', 'final')
                 tracks = [t for t in project['tracks'] if not req.get('track') or t['id'] == req['track']]
                 mix = mixdown(sr, project, results, tracks)
+                bk = project.get('backing') or {}
+                if req.get('include_backing') and bk.get('file') and not bk.get('mute'):
+                    y, bsr = sf.read(self.store.home / 'backing' / Path(bk['file']).name, dtype='float32', always_2d=True)
+                    if bsr != sr:
+                        from scipy.signal import resample_poly
+                        y = resample_poly(y, sr, bsr, axis=0).astype(np.float32)
+                    y = (y if y.shape[1] == 2 else np.repeat(y[:, :1], 2, 1)) * 10 ** (bk.get('gain_db', 0) / 20)
+                    a0 = int(round(bk.get('offset_ms', 0) / 1000 * sr))
+                    if a0 < 0: y, a0 = y[-a0:], 0
+                    if len(mix) < a0 + len(y): mix = np.concatenate([mix, np.zeros((a0 + len(y) - len(mix), 2), np.float32)])
+                    mix[a0:a0 + len(y)] += y
                 bits = {'16': 'PCM_16', '24': 'PCM_24', '32': 'FLOAT'}.get(str(req.get('bits', 24)), 'PCM_24')
                 buf = io.BytesIO(); sf.write(buf, mix, sr, subtype=bits, format='WAV')
                 return self.send(200, buf.getvalue(), 'audio/wav')

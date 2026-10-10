@@ -54,3 +54,5 @@ select.btn { width: auto; display: inline-block; }
 .chk.bad { border-left-color: #e5484d; }
 .chk:hover { color: var(--ink); }
 .home-links { line-height: 2.2; padding-left: 18px; }
+.backing { margin-bottom: 14px; }
+.backing .name { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
