@@ -80,3 +80,14 @@ def test_vocaloid_vpr():
     assert p['tempo'] == [{'tick': 0, 'bpm': 125.0}] and p['time_sig'] == [3, 4]
     assert [(n['tick'], n['dur'], n['pitch'], n['lyric'], n['vel']) for n in p['tracks'][0]['notes']] == [(1920, 240, 62, 'ride', 80), (2160, 480, 64, 'on', 64)]
     assert len(p['tracks']) == 1 and p['tracks'][0]['name'] == 'Vox'
+
+
+def test_ust_round_trip():
+    from engine.formats import to_ust, load
+    p = {'version': 1, 'ppq': 480, 'title': 'u', 'tempo': [{'tick': 0, 'bpm': 100}], 'time_sig': [4, 4],
+         'tracks': [{'id': 't1', 'name': 'Lead', 'notes': [{'id': 'a', 'tick': 480, 'dur': 480, 'pitch': 60, 'lyric': 'sun-'},
+                                                           {'id': 'b', 'tick': 960, 'dur': 240, 'pitch': 62, 'lyric': 'rise'},
+                                                           {'id': 'c', 'tick': 1200, 'dur': 240, 'pitch': 64, 'lyric': '_'}]}]}
+    back = load(to_ust(p), 'x.ust')
+    assert back['tempo'][0]['bpm'] == 100
+    assert [(n['tick'], n['dur'], n['pitch']) for n in back['tracks'][0]['notes']] == [(480, 480, 60), (960, 240, 62), (1200, 240, 64)]

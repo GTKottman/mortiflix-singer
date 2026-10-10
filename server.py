@@ -576,6 +576,7 @@ class Handler(BaseHTTPRequestHandler):
                 project = req['project'] if kind == 'msing' else expand_groups(req['project'])   # .msing keeps its groups
                 if kind == 'mid': return self.send(200, formats.to_midi(project), 'audio/midi')
                 if kind == 'musicxml': return self.send(200, formats.to_musicxml(project), 'application/vnd.recordare.musicxml+xml')
+                if kind == 'ust': return self.send(200, formats.to_ust(project, req.get('track')), 'text/plain; charset=utf-8')
                 if kind == 'msing': return self.send(200, json.dumps(project, indent=1).encode(), 'application/json')
                 results, sr = {}, 44100
                 with self.store.render_lock:

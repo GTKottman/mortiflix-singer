@@ -534,9 +534,9 @@ async function download(kind) {
   status(kind.startsWith('wav') || kind === 'stems' ? 'Rendering…' : 'Exporting…');
   const fmt = kind.startsWith('wav') ? 'wav' : kind;      // 'stems' = every track as its own WAV, zipped
   const ex = app.project().export || {};
-  const r = await post('/export', { project: app.project(), format: fmt, track: kind === 'wav-track' ? app.track().id : null, bits: ex.bits || 24, sample_rate: ex.rate || 44100, include_backing: kind === 'wav-full' });
+  const r = await post('/export', { project: app.project(), format: fmt, track: kind === 'wav-track' || kind === 'ust' ? app.track().id : null, bits: ex.bits || 24, sample_rate: ex.rate || 44100, include_backing: kind === 'wav-full' });
   if (!r.ok) { status(`Export failed: ${(await r.json()).error}`); return; }
-  const blob = await r.blob(), a = document.createElement('a'), ext = { wav: 'wav', mid: 'mid', musicxml: 'musicxml', msing: 'msing', stems: 'zip' }[fmt];
+  const blob = await r.blob(), a = document.createElement('a'), ext = { wav: 'wav', mid: 'mid', musicxml: 'musicxml', msing: 'msing', stems: 'zip', ust: 'ust' }[fmt];
   a.href = URL.createObjectURL(blob); a.download = `${app.project().title || 'song'}${kind === 'wav-track' ? ` - ${app.track().name}` : kind === 'wav-full' ? ' (with music)' : kind === 'stems' ? ' (stems)' : ''}.${ext}`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000); status(`Exported ${a.download}`);
 }

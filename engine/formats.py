@@ -211,6 +211,28 @@ def from_vpr(data: bytes, title='Imported'):
     return p
 
 
+def to_ust(project, track_id=None) -> bytes:
+    """UTAU / OpenUtau .ust of one track (the first by default): notes and rests at 480 ticks per quarter, lyrics as
+    typed ("_" holds become UTAU's "-" continuation, silent notes become rests)."""
+    t = next((x for x in project['tracks'] if x['id'] == track_id), project['tracks'][0])
+    ppq = project.get('ppq', PPQ); k = 480 / ppq
+    out = ['[#VERSION]', 'UST Version1.2', '[#SETTING]', f"Tempo={project['tempo'][0]['bpm']:.2f}", 'Tracks=1',
+           f"ProjectName={project.get('title', 'Mortiflix Singer')}", 'Mode2=True']
+    i, cur = 0, 0
+    def note(length, lyric, num):
+        nonlocal i
+        out.extend([f'[#{i:04d}]', f'Length={int(round(length))}', f'Lyric={lyric}', f'NoteNum={num}', 'PreUtterance=', 'Intensity=100', 'Modulation=0'])
+        i += 1
+    for n in sorted(t['notes'], key=lambda n: n['tick']):
+        tick, dur = n['tick'] * k, n['dur'] * k
+        if tick > cur: note(tick - cur, 'R', 60)
+        ly = (n.get('lyric') or 'la').strip()
+        ly = '-' if ly in ('_', '+') else 'R' if ly == '.' else ly.rstrip('-')
+        note(dur, ly, n['pitch']); cur = tick + dur
+    out.append('[#TRACKEND]')
+    return ('\r\n'.join(out) + '\r\n').encode('utf-8')
+
+
 def bar_segments(project):
     """[(first bar index, start tick, num, den)]: the song's meters (time_sig from bar 0, then project['meters'] =
     [{bar, num, den}] with 0-based bar indexes)."""
