@@ -331,11 +331,19 @@ class Trainer:
         state = json.loads((w / 'state.json').read_text()) if (w / 'state.json').exists() else {}
         log = (w / 'train.log').read_text(errors='replace')[-6000:] if (w / 'train.log').exists() else ''
         steps = re.findall(r'steps=(\d+)', log)
+        # the loss curve of the stage running now: (step, main loss) from the trainer's progress lines
+        curve, seen = [], set()
+        full = (w / 'train.log').read_text(errors='replace')[-400000:] if (w / 'train.log').exists() else ''
+        part = full.rsplit('scripts/train.py', 1)[-1]
+        for m in re.finditer(r'(?:mel_loss|dur_loss)=([\d.]+)[^\r\n]*?steps=(\d+)', part):
+            st_ = int(m.group(2))
+            if st_ not in seen: seen.add(st_); curve.append([st_, float(m.group(1))])
+        curve = curve[::max(1, len(curve) // 200)]
         py, _ = self.env()
         return {'name': name, 'kept': len(b['kept']), 'lines': len(self.store.script(name)), 'minutes': round(minutes, 1), 'min_minutes': MIN_MINUTES,
                 'installed': py is not None, 'kit': self.kit_job, 'gpu': self.has_gpu() if py else False,
                 'running': self.running() and self.name == name, 'busy_with': self.name if self.running() else None,
-                'state': state, 'step': int(steps[-1]) if steps else None,
+                'state': state, 'step': int(steps[-1]) if steps else None, 'curve': curve,
                 'log': '\n'.join(l.split('\r')[-1] for l in log.splitlines()[-12:]),
                 'voice': name in self.store.voice_dirs(), 'exit': None if self.proc is None or self.running() else self.proc.returncode}
 

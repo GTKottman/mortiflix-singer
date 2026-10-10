@@ -42,6 +42,24 @@ def common(data, work, name, smoke):
     }
 
 
+def gpu_gb():
+    try:
+        import torch
+        return torch.cuda.get_device_properties(0).total_memory / 2**30 if torch.cuda.is_available() else 0.0
+    except Exception:
+        return 0.0
+
+
+def fit_memory(c, frames, smoke):
+    """DiffSinger's batches are sized for 24 GB cards; a 10 GB card (an RTX 3080) runs out of memory with them. Smaller
+    batches with gradients accumulated over several keep the same effective batch."""
+    gb = gpu_gb()
+    if smoke or not gb or gb >= 20: return c
+    k = 4 if gb < 12 else 2
+    c.update({'max_batch_frames': frames // k, 'accumulate_grad_batches': k})
+    return c
+
+
 def acoustic_config(data, work, name, steps, smoke):
     c = {'base_config': [str(DS / 'configs/acoustic.yaml')], **common(data, work, name, smoke),
          'binary_data_dir': str(work / 'binary-acoustic'),
@@ -65,7 +83,7 @@ def acoustic_config(data, work, name, steps, smoke):
                                              'aux_decoder_grad': 0.1},
                   'max_batch_frames': 4000, 'max_batch_size': 4, 'val_check_interval': steps, 'augmentation_args': {
                       'random_pitch_shifting': {'enabled': False}, 'fixed_pitch_shifting': {'enabled': False}, 'random_time_stretching': {'enabled': False}}})
-    return c
+    return fit_memory(c, 50000, smoke)
 
 
 def variance_data(data, work):
@@ -103,7 +121,7 @@ def variance_config(data, work, name, steps, smoke):
                   'variances_prediction_args': {'total_repeat_bins': 16, 'backbone_type': 'lynxnet2',
                                                 'backbone_args': {'num_layers': 2, 'num_channels': 64, 'dropout_rate': 0.0, 'use_conditioner_cache': True, 'glu_type': 'atanglu'}},
                   'max_batch_frames': 4000, 'max_batch_size': 4, 'val_check_interval': steps})
-    return c
+    return fit_memory(c, 80000, smoke)
 
 
 def run(args, log):

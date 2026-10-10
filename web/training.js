@@ -26,6 +26,13 @@ async function refresh() {
   $('start').textContent = done && !s.voice ? 'Continue training' : s.voice ? 'Train again' : 'Start training';
   $('stop').hidden = !s.running; $('use').hidden = !s.voice;
   $('log').hidden = !s.log; $('log').textContent = s.log;
+  const c = s.curve || [];
+  $('curve').hidden = $('curve-note').hidden = c.length < 2;
+  if (c.length >= 2) {                     // the loss going down = the voice getting closer to your recordings
+    const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    $('curve-line').setAttribute('points', c.map(([x, y]) => `${((x - x0) / Math.max(1, x1 - x0)) * 600},${135 - ((y - y0) / Math.max(1e-9, y1 - y0)) * 130}`).join(' '));
+    $('curve-note').textContent = `Loss ${ys[ys.length - 1].toFixed(3)} at step ${x1} (it started at ${ys[0].toFixed(3)}; lower is closer to your recordings)`;
+  }
   clearTimeout(timer); timer = setTimeout(refresh, s.running || kit.state === 'installing' ? 3000 : 15000);
 }
 
