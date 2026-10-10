@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tune · Mortiflix Singer</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="booth.css">
+</head>
+<body>
+<header class="booth-top"><a class="brand" href="/">Mortiflix</a><a class="crumb" href="./">Singer</a><span class="crumb">Tune</span></header>
+<main class="booth-main">
+  <h1>Tune a vocal</h1>
+  <p class="lead">Bring any sung vocal (yours, or a render) and put it in tune: onto the song's MIDI notes, or onto a key. Your voice stays your voice: only the pitch moves, never the octave.</p>
+  <div class="tune-form">
+    <div class="row"><label class="btn">Vocal (WAV, FLAC, MP3)<input id="wav" type="file" accept="audio/*" hidden></label> <span id="wav-name" class="muted"></span></div>
+    <div class="row">
+      <label class="btn">Its MIDI part<input id="mid" type="file" accept=".mid,.midi" hidden></label> <span id="mid-name" class="muted"></span>
+      <span class="muted">or a key:</span> <select id="root"></select> <select id="scale"></select>
+    </div>
+    <div class="row">
+      <label>Amount <input id="amount" type="range" min="0" max="100" value="100"> <span id="amount-v">100%</span></label>
+      <label>Speed <input id="speed" type="range" min="0" max="200" value="20"> <span id="speed-v">20 ms</span></label>
+      <label><input id="vibrato" type="checkbox"> Keep vibrato</label>
+      <label title="move the MIDI later (+) or earlier (−) against the vocal">MIDI offset <input id="offset" type="number" value="0" step="10"> ms</label>
+    </div>
+    <p><button id="go" class="btn primary" disabled>Tune it</button> <span id="state" class="muted"></span></p>
+  </div>
+  <canvas id="curves" class="curves" height="260" hidden></canvas>
+  <p id="summary" class="lead"></p>
+  <div id="ab" class="ab" hidden>
+    <div><span class="muted">Before</span><audio id="before" controls preload="none"></audio></div>
+    <div><span class="muted">After</span><audio id="after" controls preload="none"></audio></div>
+    <a id="download" class="btn primary" download>Download the tuned WAV</a>
+  </div>
+</main>
+<script type="module" src="tune.js"></script>
+</body>
+</html>

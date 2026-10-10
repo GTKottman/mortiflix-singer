@@ -38,3 +38,12 @@ input#name { margin: 0 10px; padding: 6px 8px; background: transparent; color: v
 .v-name { display: flex; flex-direction: column; gap: 3px; }
 .ok { color: #3ccf7d; }
 .bad { color: #e5484d; }
+.tune-form { display: grid; gap: 12px; margin: 18px 0; }
+.tune-form .row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.tune-form select, .tune-form input[type=number] { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.tune-form input[type=number] { width: 70px; }
+.curves { width: 100%; display: block; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 10px 0; }
+.ab { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.ab > div { display: flex; flex-direction: column; gap: 4px; }
+.tune-form select { width: auto; }
+.tune-form label.btn { width: auto; justify-self: start; }

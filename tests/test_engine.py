@@ -120,3 +120,36 @@ def test_note_groups_expand_to_notes():
     ns = sorted(e['tracks'][0]['notes'], key=lambda n: n['tick'])
     assert [(n['id'], n['tick'], n['pitch']) for n in ns] == [('a', 0, 60), ('r1~x', 1920, 64), ('r1~y', 2160, 66), ('r2~x', 3840, 62), ('r2~y', 4080, 64)]
     assert 'groups' not in e and 'refs' not in e['tracks'][0] and p['tracks'][0]['refs']      # the original is untouched
+
+
+def _sung(sr, notes, detune_cents, vib_cents=0):
+    """A voice-like tone: harmonics with a vocal-ish envelope, each note detuned, optional 5.5 Hz vibrato."""
+    out = []
+    for s, d, m in notes:
+        t = np.arange(int(d / 1000 * sr)) / sr
+        f = 440 * 2 ** ((m + detune_cents / 100 - 69) / 12) * 2 ** (vib_cents / 1200 * np.sin(2 * np.pi * 5.5 * t))
+        ph = 2 * np.pi * np.cumsum(f) / sr
+        y = sum(np.sin(k * ph) / k * np.exp(-((k * f.mean() - 700) / 900) ** 2) for k in range(1, 30))
+        out.append(y * np.hanning(len(t)) ** 0.2)
+    return np.concatenate(out).astype(np.float32) * 0.2
+
+
+def test_corrector_centres_notes_and_keeps_vibrato():
+    from engine.correct import correct
+    sr = 44100
+    notes = [(0.0, 600.0, 57), (600.0, 600.0, 60), (1200.0, 600.0, 62)]
+    y = _sung(sr, notes, detune_cents=45, vib_cents=30)
+    out, rep = correct(y, sr, notes=notes, amount=1.0, speed=60, vibrato=True)
+    for r in rep['notes']:
+        assert abs(r['cents_before'] - 45) < 15 and abs(r['cents_after']) < 12
+    half, _ = correct(y, sr, notes=notes, amount=0.5)
+    assert len(out) == len(y) and np.isfinite(out).all()
+
+
+def test_corrector_key_mode_snaps_to_the_scale():
+    from engine.correct import correct
+    sr = 44100
+    y = _sung(sr, [(0.0, 700.0, 61)], detune_cents=0)            # C#4, not in C major
+    _, rep = correct(y, sr, key=(0, 'major'), amount=1.0, speed=0, vibrato=False)
+    after = [m for _, m in rep['after'] if m is not None]
+    assert abs(np.median(after) - 60) < 0.15 or abs(np.median(after) - 62) < 0.15  # moved onto C or D

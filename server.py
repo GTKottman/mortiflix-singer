@@ -269,6 +269,9 @@ class Handler(BaseHTTPRequestHandler):
             if (m := re.match(r'^/scripts/(bundled|yours)/([\w.-]+\.js)$', path)):
                 f = (HERE / 'scripts' if m.group(1) == 'bundled' else self.store.home / 'scripts') / m.group(2)
                 return self.send(200, f.read_bytes(), 'text/javascript') if f.exists() else self.send(404, {'error': 'no such script'})
+            if (m := re.match(r'^/tune/file/([0-9a-f]{40}(?:-tuned)?\.wav)$', path)):
+                f = self.store.home / 'tune' / m.group(1)
+                return self.send(200, f.read_bytes(), 'audio/wav') if f.exists() else self.send(404, {'error': 'no such file'})
             if path == '/inbox':                       # MIDI sent from the DAW plugin
                 d = self.store.home / 'inbox'
                 files = sorted(d.glob('*.mid'), key=lambda f: -f.stat().st_mtime) if d.exists() else []
@@ -352,6 +355,29 @@ class Handler(BaseHTTPRequestHandler):
                 try: dur = sf.info(f).duration
                 except Exception: dur = None
                 return self.send(200, {'file': f.name, 'name': q.get('filename', f.name), 'duration': dur})
+            if path == '/tune/upload':                 # the pitch corrector's inputs: a vocal (stored as WAV) or a MIDI part
+                import hashlib
+                d = self.store.home / 'tune'; d.mkdir(parents=True, exist_ok=True)
+                name = q.get('filename', 'x.wav'); h = hashlib.sha1(body).hexdigest()
+                if name.lower().endswith(('.mid', '.midi')):
+                    f = d / f'{h}.mid'; f.write_bytes(body)
+                    from engine.song import read_midi
+                    notes = read_midi(str(f), None)
+                    return self.send(200, {'file': f.name, 'notes': [[round(a_, 1), round(b_, 1), int(m_)] for a_, b_, m_ in notes]})
+                y, sr = sf.read(io.BytesIO(body), dtype='float32', always_2d=True)
+                f = d / f'{h}.wav'; sf.write(f, y.mean(1), sr, subtype='FLOAT')
+                return self.send(200, {'file': f.name, 'duration': round(len(y) / sr, 2), 'sample_rate': sr})
+            if path == '/tune':
+                from engine.correct import correct
+                req = json.loads(body); d = self.store.home / 'tune'
+                wav = d / Path(req['wav']).name
+                y, sr = sf.read(wav, dtype='float32')
+                notes = [(a_ + req.get('offset_ms', 0), b_, m_) for a_, b_, m_ in req['notes']] if req.get('notes') else None
+                key = (int(req['key']['root']), req['key'].get('scale', 'major')) if req.get('key') else None
+                out, rep = correct(y, sr, notes=notes, key=key, amount=float(req.get('amount', 1.0)),
+                                   speed=float(req.get('speed', 60)), vibrato=bool(req.get('vibrato', True)))
+                o = d / f'{wav.stem}-tuned.wav'; sf.write(o, out, sr, subtype='PCM_24')
+                return self.send(200, {**rep, 'file': o.name, 'url': f'/api/singer/tune/file/{o.name}', 'original': f'/api/singer/tune/file/{wav.name}'})
             if path == '/import':
                 return self.send(200, formats.load(body, q.get('filename', 'file.mid')))
             if path == '/export':
