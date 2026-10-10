@@ -74,3 +74,37 @@ def test_consonant_lead_in_is_editable():
     s_start = next(s for p, s, e in phones if p == 's')
     assert abs((1500.0 - s_start) - 250.0) < 1.0 and abs(natural - 250.0) > 5     # "s t r" now start 250 ms early
     assert all(e > s for p, s, e in phones) and all(abs(a[2] - b[1]) < 1e-6 for a, b in zip(phones, phones[1:]))
+
+
+def test_breath_tokens_become_breaths():
+    words = song.words_of([[0.0, 400.0, 60], [500.0, 400.0, 62]], ['br', 'go'], TOKENS)
+    assert words[0].phonemes == ['AP'] and words[1].phonemes == ['g', 'ow']
+
+
+@pytest.mark.skipif(not VOICE.exists(), reason='no voice installed')
+def test_phoneme_lengths_scale_and_still_fit_the_notes():
+    v = Voice(VOICE, ROOT / 'voices/nsf_hifigan')
+    notes = [[0.0, 700.0, 62], [700.0, 700.0, 64]]
+    length = lambda phones, i: phones[i][2] - phones[i][1]
+    words = song.words_of(notes, ['street', 'light'], v.tokens)
+    before, _ = v.layout(words)
+    words[0].scales = [1, 1, 1, 1, 3]                                      # the final "t" of street, x3
+    after, _ = v.layout(words)
+    assert length(after, 4) > 1.8 * length(before, 4)
+    vowels = [s for p, s, e in after if p in ('iy', 'ay')]
+    assert np.allclose(vowels, [0.0, 700.0], atol=v.frame_ms)               # vowels still start on their notes
+
+
+@pytest.mark.skipif(not VOICE.exists(), reason='no voice installed')
+def test_glide_sets_the_slide_length():
+    v = Voice(VOICE, ROOT / 'voices/nsf_hifigan')
+    notes = [[0.0, 600.0, 62], [600.0, 600.0, 67], [1200.0, 600.0, 62]]
+
+    def slope(glide):
+        words = song.words_of(notes, ['la', 'la', 'la'], v.tokens)
+        words[1].notes[0].glide = glide
+        _, t0, c = v.render_phrase(words, steps=4, pitch_steps=4)
+        p, fm = c['pitch'], c['frame_ms']
+        k = lambda ms: int((ms - t0) / fm)
+        return float(np.max(np.abs(np.diff(p[k(450):k(750)]))))          # steepest step per frame around the change
+    assert slope(400) < 0.5 * slope(40)
