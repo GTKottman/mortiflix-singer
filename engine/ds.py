@@ -40,6 +40,7 @@ class Word:
     notes: list[Note]          # the word's first note, then its syllable and hold notes
     phonemes: list[str]
     holds: set[int] = field(default_factory=set)   # indexes into notes that only hold the previous vowel
+    scales: list[float] | None = None              # per phoneme: x the model's length (the phoneme timing panel)
 
 
 def frames_from_ms(durs_ms, frame_ms):
@@ -94,7 +95,10 @@ class Voice:
         fm = self.frame_ms
         first = words[0].notes[0]
         groups = [[first.start - PAD_MS, first.midi, ['SP']]]
+        scale = [1.0]                                   # one per phoneme, in order (the leading SP first)
         for w in words:
+            sc = w.scales if w.scales and len(w.scales) == len(w.phonemes) else [1.0] * len(w.phonemes)
+            scale += [min(4.0, max(0.1, float(x))) for x in sc]
             sung = [n for i, n in enumerate(w.notes) if i not in w.holds]
             starts, ni = [], 0
             for i, ph in enumerate(w.phonemes):
@@ -115,6 +119,7 @@ class Voice:
         enc, mask = self.linguistic.run(None, {'tokens': tokens, 'word_div': word_div, 'word_dur': word_dur})
         ph_midi = np.array([[int(round(g[1])) for g in groups for _ in g[2]]], np.int64)
         dur = self.dur.run(None, {'encoder_out': enc, 'x_masks': mask, 'ph_midi': ph_midi})[0][0].astype(float)
+        dur = dur * np.array(scale[:len(dur)] + [1.0] * (len(dur) - len(scale)))   # the stretch to the notes keeps these ratios
         counts = [len(g[2]) for g in groups]
         cum = np.cumsum(counts)
         align = list(zip(cum[:-1], [g[0] for g in groups[1:]]))          # (index of a group's first phoneme, its ms)

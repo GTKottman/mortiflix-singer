@@ -92,6 +92,9 @@ def track_words(voice: Voice, project, track):
         toks.append(lyr)
     words = song.words_of(raw, toks, voice.tokens)
     by_start = {round(tm.to_ms(n['tick']), 3): n for n in notes}
+    for w in words:                                   # per-phoneme lengths live on the word's first note
+        n0 = by_start.get(round(w.notes[0].start, 3))
+        if n0 and isinstance(n0.get('ph_scale'), list) and len(n0['ph_scale']) == len(w.phonemes): w.scales = n0['ph_scale']
     for w in words:                                   # per-note settings onto the engine's notes
         for en in w.notes:
             n = by_start.get(round(en.start, 3))
@@ -107,7 +110,7 @@ def track_words(voice: Voice, project, track):
 
 
 def phrase_key(voice_id, words, track, lanes_sig, params):
-    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead, n.glide, n.glide_offset) for n in w.notes] + [w.phonemes] for w in words],
+    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead, n.glide, n.glide_offset) for n in w.notes] + [w.phonemes, w.scales] for w in words],
             'mode': track.get('mode', 'Default'), 'ms': track.get('mode_strength', 1.0), 'lanes': lanes_sig, 'p': params}
     return hashlib.sha1(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()[:20]
 

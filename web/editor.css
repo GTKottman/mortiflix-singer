@@ -70,3 +70,7 @@ select.btn { width: auto; display: inline-block; }
 @media (max-width: 960px) { .ed-top .crumb, .ed-top .sep { display: none; } }
 .backing .btn { white-space: normal; text-align: left; }
 .ed-tracks { overflow-x: hidden; }
+.timing { margin: 10px 0; font-size: 12px; }
+.timing-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.timing-row label { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--ink); font-family: ui-monospace, monospace; }
+.timing-row input { width: 58px; text-align: center; }

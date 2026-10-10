@@ -108,6 +108,41 @@ async function check() {
   status('Checked');
 }
 
+// ---- phoneme timing: each phoneme of the word gets a length (100% = the voice's own); stored on the word's first note ----
+function wordOf(n) {
+  const ns = [...app.track().notes].sort((a, b) => a.tick - b.tick); let i = ns.findIndex((m) => m.id === n.id);
+  if (i < 0 || /^[_+.]$|^br$/i.test(n.lyric || '')) return null;
+  while (i > 0 && (ns[i - 1].lyric || '').endsWith('-')) i--;
+  const first = ns[i]; let text = '';
+  for (let k = i; k < ns.length; k++) { const ly = ns[k].lyric || 'la'; text += ly.replace(/-$/, ''); if (!ly.endsWith('-')) break; }
+  return { first, text };
+}
+async function phonemeTiming(n) {
+  const w = wordOf(n), box = $('i-timing'); if (!w || !box) return;
+  let phs = w.first.phonemes ? w.first.phonemes.split(/\s+/) : null;
+  if (!phs) {
+    const d = await (await post('/phonemize', { voice: app.track().voice, words: [w.text] })).json();
+    phs = Object.values(d.phonemes || {})[0] || [];
+  }
+  if (!phs.length || !$('i-timing')) return;
+  const cur = Array.isArray(w.first.ph_scale) && w.first.ph_scale.length === phs.length ? w.first.ph_scale : phs.map(() => 1);
+  box.textContent = '';
+  const h = document.createElement('div'); h.className = 'muted'; h.textContent = `Phoneme lengths for "${w.text}" (%)`; box.append(h);
+  const row = document.createElement('div'); row.className = 'timing-row';
+  phs.forEach((ph, i) => {
+    const l = document.createElement('label'); l.textContent = ph;
+    const inp = document.createElement('input'); inp.type = 'number'; inp.min = '10'; inp.max = '400'; inp.step = '10'; inp.value = Math.round(cur[i] * 100);
+    inp.onchange = () => app.edit('phoneme length', (p) => {
+      const f = app.trackOf(p).notes.find((m) => m.id === w.first.id); if (!f) return;
+      const next = [...cur]; next[i] = Math.min(400, Math.max(10, Number(inp.value) || 100)) / 100;
+      f.ph_scale = next.every((x) => x === 1) ? null : next;
+    });
+    l.append(inp); row.append(l);
+  });
+  box.append(row);
+  if (w.first.ph_scale) { const r = document.createElement('button'); r.className = 'btn tiny'; r.textContent = 'Reset lengths'; r.onclick = () => app.edit('phoneme length', (p) => { const f = app.trackOf(p).notes.find((m) => m.id === w.first.id); if (f) f.ph_scale = null; }); box.append(r); }
+}
+
 // ---- drawing the side panes ----
 function draw() { roll?.draw(); lanes?.draw(); }
 function tracks() {
@@ -191,7 +226,7 @@ function inspector() {
     <label>Lead-in</label><input id="i-lead" type="number" min="20" max="600" step="10" placeholder="auto" title="how early the consonants before the vowel start, ms">
     <label>Glide</label><input id="i-glide" type="number" min="10" max="1000" step="10" placeholder="auto" title="how long the slide from the previous note takes, ms">
     <label>Glide at</label><input id="i-goff" type="number" min="-500" max="500" step="10" title="where the slide is centred, ms after the note starts (negative = early)">
-    </div><p><button id="i-retake" class="btn tiny" title="A new take of this phrase (R)">Retake phrase</button> <button id="i-take0" class="btn tiny">First take</button> <span id="i-take" class="muted"></span></p><p class="phones" id="i-auto"></p><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
+    </div><p><button id="i-retake" class="btn tiny" title="A new take of this phrase (R)">Retake phrase</button> <button id="i-take0" class="btn tiny">First take</button> <span id="i-take" class="muted"></span></p><p class="phones" id="i-auto"></p><div id="i-timing" class="timing"></div><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
   $('i-lyric').value = many ? '' : n.lyric || ''; $('i-ph').value = n.phonemes || ''; $('i-note').textContent = `${NAMES[n.pitch % 12]}${Math.floor(n.pitch / 12) - 1} · ${(n.dur / PPQ).toFixed(2)} beats`;
   $('i-vel').value = n.vel ?? 64; $('i-vd').value = n.vib_depth ?? 0; $('i-vr').value = n.vib_rate ?? 5.5; $('i-vs').value = n.vib_start ?? 250;
   const setn = (k, conv = (v) => v) => (e) => app.edit(k, (p) => { for (const m of app.trackOf(p).notes) if (app.sel.has(m.id)) m[k] = conv(e.target.value); });
@@ -203,6 +238,7 @@ function inspector() {
   $('i-retake').onclick = () => retake(n, +1); $('i-take0').onclick = () => retake(n, 0);
   $('i-vel').onchange = setn('vel', Number); $('i-vd').onchange = setn('vib_depth', Number); $('i-vr').onchange = setn('vib_rate', Number); $('i-vs').onchange = setn('vib_start', Number);
   if (app.syllableTrouble().has(n.id)) $('i-warn').textContent = 'This word has more syllables than notes: split it over more notes (sun- rise), or pick a shorter word.';
+  if (!many) phonemeTiming(n);
   if (!many && n.lyric && !/^[_+.]$/.test(n.lyric)) post('/phonemize', { voice: app.track().voice, words: [n.lyric.replace(/-$/, '')] }).then((r) => r.json()).then((d) => { const ph = Object.values(d.phonemes || {})[0]; if (ph && $('i-auto')) $('i-auto').textContent = `automatic: ${ph.join(' ')}`; }).catch(() => {});
 }
 
