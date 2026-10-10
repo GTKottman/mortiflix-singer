@@ -24,7 +24,7 @@ async function refresh() {
     : !s.gpu ? 'Without a graphics card this takes days. It works, just slowly.' : 'Ready. A full training takes several hours on a graphics card.';
   $('start').disabled = s.running || !s.installed || !enough || !!s.busy_with;
   $('start').textContent = done && !s.voice ? 'Continue training' : s.voice ? 'Train again' : 'Start training';
-  $('stop').hidden = !s.running; $('use').hidden = !s.voice;
+  $('stop').hidden = !s.running; $('use').hidden = !s.voice; $('tryout').hidden = !s.voice;
   $('log').hidden = !s.log; $('log').textContent = s.log;
   const c = s.curve || [];
   $('curve').hidden = $('curve-note').hidden = c.length < 2;
@@ -44,3 +44,27 @@ $('kit').onclick = async () => { await api('/train/kit', { method: 'POST', body:
 $('stop').onclick = async () => { await api('/train/stop', { method: 'POST', body: '{}' }); refresh(); };
 $('name').onchange = refresh;
 refresh();
+
+// the test (design 8b step 6): the new voice sings a line in its range; every word is checked
+const NOTE = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+const midiOf = (n) => NOTE[n.slice(0, -1)] + 12 * (Number(n.slice(-1)) + 1);
+$('try').onclick = async () => {
+  const name = $('name').value.trim() || 'you';
+  $('try').disabled = true; $('try-state').textContent = 'Singing…';
+  const v = (await (await api('/voices')).json()).voices.find((x) => x.name === name) || {};
+  const mid = v.range ? Math.round((midiOf(v.range[0]) + midiOf(v.range[1])) / 2) : 48;
+  const words = [['warm', 0, 2], ['wa-', 2, 1], ['ter', 4, 1], ['calls', 5, 4], ['the', 9, 1], ['si-', 10, 1], ['lence', 12, 1], ['glows', 13, 5]];
+  const steps = [0, 2, 0, -1, 0, 2, 4, 2];
+  const project = { version: 1, ppq: 480, title: 'test', tempo: [{ tick: 0, bpm: 90 }], time_sig: [4, 4],
+    tracks: [{ id: 't1', name: 'Lead', voice: name, notes: words.map(([w, at, len], i) => ({ id: `n${i}`, tick: at * 240, dur: len * 240 - 20, pitch: mid + steps[i], lyric: w, vel: 64 })), lanes: {}, pitch_draw: [], params: { steps: 20 } }] };
+  try {
+    const r = await api('/export', { method: 'POST', body: JSON.stringify({ project, format: 'wav', bits: 16 }) });
+    if (!r.ok) throw new Error((await r.json()).error);
+    $('try-audio').src = URL.createObjectURL(await r.blob()); $('try-audio').hidden = false; $('try-audio').play().catch(() => {});
+    $('try-state').textContent = 'Listening to it…';
+    const c = await (await api('/check', { method: 'POST', body: JSON.stringify({ project }) })).json();
+    const sm = c.tracks.t1.summary;
+    $('try-state').textContent = `${sm.words - sm.unclear} of ${sm.words} words clear, ${sm.off_notes} notes off pitch.`;
+  } catch (e) { $('try-state').textContent = `Couldn't sing: ${e.message}`; }
+  $('try').disabled = false;
+};
