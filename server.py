@@ -345,7 +345,8 @@ class Trainer:
                        f'{q(py)} {q(tdir / "train.py")} --data {q(data)} --name {q(name)} --only export --vocoder own --voices {q(voices)}']
         log = open(w / 'train.log', 'a')
         group = {'creationflags': 0x00000200 | 0x08000000} if os.name == 'nt' else {'start_new_session': True}   # own group, no console
-        self.proc = subprocess.Popen(' && '.join(steps_), shell=True, stdout=log, stderr=subprocess.STDOUT, **group)
+        env = {**os.environ, 'PYTHONUTF8': '1', 'PYTHONIOENCODING': 'utf-8'}       # Windows would read text as cp1252
+        self.proc = subprocess.Popen(' && '.join(steps_), shell=True, stdout=log, stderr=subprocess.STDOUT, env=env, **group)
         self.name = name
         (w / 'job.pid').write_text(str(self.proc.pid))
         return {'started': True, 'pid': self.proc.pid}

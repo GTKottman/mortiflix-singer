@@ -43,6 +43,9 @@ def main():
     spec = BUILD / 'singer-service.spec'
     t = spec.read_text().replace('    optimize=', "    module_collection_mode={'inflect': 'pyz+py', 'typeguard': 'pyz+py'},\n    optimize=", 1)
     if 'module_collection_mode' not in t: raise SystemExit('could not patch the spec (PyInstaller changed its template)')
+    # Python's UTF-8 mode: on Windows text files would otherwise default to cp1252 (lyrics in Japanese, IPA symbols...)
+    t = t.replace("    a.datas,\n    [],", "    a.datas,\n    [('X utf8_mode=1', None, 'OPTION')],", 1)
+    if 'utf8_mode' not in t: raise SystemExit('could not set UTF-8 mode in the spec')
     spec.write_text(t)
     subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--distpath', str(BUILD / 'dist'),
                     '--workpath', str(BUILD / 'work'), str(spec)], check=True, cwd=ROOT)

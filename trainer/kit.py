@@ -87,7 +87,7 @@ def install(home: Path, sources: Path, progress=print):
         (k / 'ref' / root).rename(bv)
     # 4. Python + PyTorch + dependencies (uv fetches Python 3.11 itself)
     venv = k / 'trainer' / '.venv'
-    run = lambda *a: subprocess.run([str(uv), *map(str, a)], check=True, cwd=k)
+    run = lambda *a: subprocess.run([str(uv), *map(str, a)], check=True, cwd=k, env={**os.environ, 'PYTHONUTF8': '1'})
     if not python_of(home).exists():
         progress('Getting Python'); run('venv', '-q', '-p', '3.11', venv)
     if not (k / '.done').exists():

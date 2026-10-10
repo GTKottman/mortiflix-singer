@@ -24,7 +24,7 @@ class Aligner:
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
         self.fe = Wav2Vec2FeatureExtractor.from_pretrained(MODEL)
         self.model = Wav2Vec2ForCTC.from_pretrained(MODEL).to(self.device).eval()
-        vocab = json.load(open(hf_hub_download(MODEL, 'vocab.json')))
+        vocab = json.load(open(hf_hub_download(MODEL, 'vocab.json'), encoding='utf-8'))
         self.blank = vocab.get('<pad>', 0)
         self.ids = {}
         for a, cands in ARPA2IPA.items():
