@@ -1,6 +1,6 @@
 [package]
 name = "mortiflix_singer_bridge"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Mortiflix Singer in your DAW: plays the rendered vocals in time with the host and captures MIDI for the editor"
 license = "GPL-3.0-or-later"

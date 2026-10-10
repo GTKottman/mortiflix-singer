@@ -1138,7 +1138,7 @@ dependencies = [
 
 [[package]]
 name = "mortiflix_singer_bridge"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "hound",
  "nih_plug",
