@@ -248,7 +248,7 @@ class Trainer:
                 'log': '\n'.join(l.split('\r')[-1] for l in log.splitlines()[-12:]),
                 'voice': name in self.store.voice_dirs(), 'exit': None if self.proc is None or self.running() else self.proc.returncode}
 
-    def start(self, name, steps=160000, smoke=False):
+    def start(self, name, steps=160000, smoke=False, vocoder=False):
         import subprocess
         if self.running(): raise ValueError(f'already training "{self.name}"')
         if not TRAIN_PY.exists(): raise ValueError('the training environment is not installed: run trainer/setup.sh')
@@ -259,6 +259,10 @@ class Trainer:
         script = (f'"{TRAIN_PY}" "{HERE}/trainer/build_dataset.py" --booth "{self.store.dataset(name)}" --out "{data}" '
                   f'&& "{TRAIN_PY}" "{HERE}/trainer/train.py" --data "{data}" --name "{name}" --steps {int(steps)}'
                   f' --voices "{self.store.home}/voices"' + (' --smoke' if smoke else ''))
+        if vocoder:      # then the voice's own small vocoder (fast on a CPU), and the voice switched to it
+            script += (f' && "{TRAIN_PY}" "{HERE}/trainer/train_vocoder.py" --data "{data}" --name "{name}" --voices "{self.store.home}/voices"'
+                       + (' --smoke' if smoke else '') +
+                       f' && "{TRAIN_PY}" "{HERE}/trainer/train.py" --data "{data}" --name "{name}" --only export --vocoder own --voices "{self.store.home}/voices"')
         log = open(w / 'train.log', 'a')
         self.proc = subprocess.Popen(['bash', '-c', script], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         self.name = name
@@ -479,7 +483,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, buf.getvalue(), 'audio/wav')
             if path == '/train/start':
                 req = json.loads(body or b'{}')
-                return self.send(200, self.trainer.start(name, int(req.get('steps', 160000)), bool(req.get('smoke'))))
+                return self.send(200, self.trainer.start(name, int(req.get('steps', 160000)), bool(req.get('smoke')), bool(req.get('vocoder'))))
             if path == '/train/stop': return self.send(200, self.trainer.stop())
             if path == '/downloads/start': return self.send(200, self.downloads.start(q.get('id', '')))
             if path == '/booth/keep':

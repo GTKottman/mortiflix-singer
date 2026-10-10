@@ -50,6 +50,22 @@ def fix_for_onnx(g, h):
         m.forward = types.MethodType(up if isinstance(m, UpSample1d) else low, m)
 
 
+def export(g, h, out: Path, name: str, license_note: str):
+    """A BigVGAN generator (weights loaded) -> out/<name>.onnx + vocoder.yaml in the engine's layout."""
+    g.remove_weight_norm(); g.eval()
+    fix_for_onnx(g, h)
+    out.mkdir(parents=True, exist_ok=True)
+    onnx_path = out / f'{name}.onnx'
+    w = Wrapper(g).eval()
+    torch.onnx.export(w, (torch.randn(1, 64, h.num_mels) - 5,), str(onnx_path), input_names=['mel'], output_names=['waveform'],
+                      dynamic_axes={'mel': {1: 'frames'}, 'waveform': {1: 'samples'}}, opset_version=17, dynamo=False)
+    (out / 'vocoder.yaml').write_text(yaml.safe_dump({
+        'name': name, 'model': onnx_path.name, 'num_mel_bins': h.num_mels, 'hop_size': h.hop_size, 'win_size': h.win_size,
+        'fft_size': h.n_fft, 'sample_rate': h.sampling_rate, 'mel_fmin': 0, 'mel_fmax': h.sampling_rate // 2, 'mel_base': 'e',
+        'pitch_controllable': False, 'license': license_note}, sort_keys=False))
+    return onnx_path
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', required=True); ap.add_argument('--check', help='a WAV to resynthesize as a check')

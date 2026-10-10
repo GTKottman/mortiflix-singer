@@ -61,5 +61,5 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 ## Known gaps worth doing next
 
 - Record in the Booth (about an hour of kept takes) and train the first real voice.
-- A small fast vocoder distilled from BigVGAN on your recordings, for CPU users.
+- Train the optional own vocoder with your recordings (the code is ready and smoke-tested; 3.6 M parameters, about 11x faster than BigVGAN v2 on a CPU).
 - AU plugin; more languages.

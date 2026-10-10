@@ -124,7 +124,7 @@ def sung_range(data):
     return [f'{names[lo % 12]}{lo // 12 - 1}', f'{names[hi % 12]}{hi // 12 - 1}']
 
 
-def package(work, name, out, data=None):
+def package(work, name, out, data=None, vocoder=VOCODER):
     """DiffSinger's two export folders -> one voice folder in the engine's layout (SPORE's)."""
     out.mkdir(parents=True, exist_ok=True)
     a, v = work / 'export-acoustic', work / 'export-variance'
@@ -142,7 +142,7 @@ def package(work, name, out, data=None):
     (out / 'character.yaml').write_text(yaml.safe_dump({'name': name, 'text_file_encoding': 'utf-8', 'range': sung_range(data) if data else None,
                                                         'license': 'yours: trained on your own recordings', 'commercial': True}))
     cfg = yaml.safe_load((out / 'dsconfig.yaml').read_text())
-    cfg['vocoder'] = VOCODER
+    cfg['vocoder'] = vocoder
     (out / 'dsconfig.yaml').write_text(yaml.safe_dump(cfg, sort_keys=False))
     return out
 
@@ -154,6 +154,8 @@ def main():
     ap.add_argument('--steps', type=int, default=160000); ap.add_argument('--variance-steps', type=int)
     ap.add_argument('--smoke', action='store_true'); ap.add_argument('--only', choices=['configs', 'binarize', 'acoustic', 'variance', 'export'])
     ap.add_argument('--voices', default=str(Path.home() / 'MortiflixSinger' / 'voices'))
+    ap.add_argument('--vocoder', default='bigvgan', choices=['bigvgan', 'own'],
+                    help="own = the voice's own small vocoder from train_vocoder.py (fast on a CPU); bigvgan = BigVGAN v2")
     a = ap.parse_args()
     data = Path(a.data).expanduser().resolve()
     work = Path(a.work or Path.home() / 'MortiflixSinger' / 'training' / a.name).expanduser().resolve(); work.mkdir(parents=True, exist_ok=True)
@@ -189,7 +191,7 @@ def main():
     if 'export' in stages:
         run([str(HERE / 'ds_export.py'), 'acoustic', '--exp', exp_a, '--out', work / 'export-acoustic'], log)
         run([str(HERE / 'ds_export.py'), 'variance', '--exp', exp_v, '--out', work / 'export-variance'], log)
-        out = package(work, a.name, Path(a.voices) / a.name, data)
+        out = package(work, a.name, Path(a.voices) / a.name, data, f'{a.name}_vocoder' if a.vocoder == 'own' else VOCODER)
         state['export'] = str(out); save()
         print(f'voice -> {out}')
 

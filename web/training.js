@@ -27,7 +27,7 @@ async function refresh() {
 }
 
 $('start').onclick = async () => {
-  const r = await api(`/train/start?name=${encodeURIComponent($('name').value.trim() || 'you')}`, { method: 'POST', body: '{}' });
+  const r = await api(`/train/start?name=${encodeURIComponent($('name').value.trim() || 'you')}`, { method: 'POST', body: JSON.stringify({ vocoder: $('vocoder').checked }) });
   if (!r.ok) $('advice').textContent = (await r.json()).error; refresh();
 };
 $('stop').onclick = async () => { await api('/train/stop', { method: 'POST', body: '{}' }); refresh(); };
