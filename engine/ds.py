@@ -31,6 +31,8 @@ class Note:
     vib_start: float = 250.0   # ms after the note starts
     energy: float = 0.0        # dB offset from velocity (127 = +6, 64 = 0, 1 = -12)
     lead: float | None = None  # the consonants before this note's vowel last this long (ms), instead of the model's
+    glide: float | None = None # the slide from the previous note into this one takes this long (ms), instead of the model's
+    glide_offset: float = 0.0  # ... and is centred this many ms after the note starts (negative = it arrives early)
 
 
 @dataclass
@@ -218,6 +220,16 @@ class Voice:
             if b <= a: continue
             tt = (times[a:b] - (n.start + n.vib_start)) / 1000
             pitch[a:b] += n.vib_depth / 100 * np.clip(tt / 0.15, 0, 1) * np.sin(2 * np.pi * n.vib_rate * tt)
+        # per-note transitions: replace the model's slide into a note with an S-curve of the chosen length
+        prev = None
+        for n in notes:
+            if n.glide is not None and prev is not None and id(n) not in breath:
+                c = n.start + n.glide_offset; half = max(10.0, float(n.glide)) / 2
+                a, b = frame_of(c - half), frame_of(c + half)
+                if b - a >= 2:
+                    p0, p1 = pitch[max(a - 1, 0)], pitch[min(b, total - 1)]
+                    x = np.linspace(0, 1, b - a); pitch[a:b] = p0 + (p1 - p0) * (x * x * (3 - 2 * x))
+            prev = n
         if pitch_override is not None:
             ov = np.asarray(pitch_override(times), float)
             pitch = np.where(np.isnan(ov), pitch, ov)

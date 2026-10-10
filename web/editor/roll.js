@@ -1,5 +1,5 @@
 // The piano roll: notes with their words inside, phonemes and the rendered pitch drawn over them.
-import { tempoMap, ticksPerBar, syllables, uid } from './model.js';
+import { tempoMap, ticksPerBar, syllables, uid, SCALES } from './model.js';
 
 const KEYW = 52, RULER = 26;
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -137,8 +137,14 @@ export class Roll {
     const p = this.app.project(), t = this.app.track(), tm = tempoMap(p), bar = ticksPerBar(p), beat = p.ppq * 4 / p.time_sig[1];
     g.fillStyle = c('--bg'); g.fillRect(0, 0, W, H);
     // rows
+    const key = p.key && SCALES[p.key.scale] ? new Set(SCALES[p.key.scale]) : null;
     for (let m = Math.ceil(this.top - (H - RULER) / this.rowH) - 1; m <= this.top; m++) {
-      const y = this.Y(m); if (BLACK.has(((m % 12) + 12) % 12)) { g.fillStyle = c('--raise') || 'rgba(127,127,127,.06)'; g.globalAlpha = 0.6; g.fillRect(KEYW, y, W, this.rowH); g.globalAlpha = 1; }
+      const y = this.Y(m), pc = ((m % 12) + 12) % 12;
+      // with a key set, rows outside the scale are shaded (the scale's notes stay clear, its root is marked);
+      // without one, the black keys are shaded as on a piano
+      const out = key ? !key.has((pc - p.key.root + 12) % 12) : BLACK.has(pc);
+      if (out) { g.fillStyle = key ? c('--line') : (c('--raise') || 'rgba(127,127,127,.06)'); g.globalAlpha = key ? 0.85 : 0.6; g.fillRect(KEYW, y, W, this.rowH); g.globalAlpha = 1; }
+      if (key && pc === p.key.root) { g.fillStyle = c('--accent'); g.globalAlpha = 0.06; g.fillRect(KEYW, y, W, this.rowH); g.globalAlpha = 1; }
       g.strokeStyle = c('--line'); g.lineWidth = m % 12 === 0 ? 1 : 0.5; g.beginPath(); g.moveTo(KEYW, y + this.rowH); g.lineTo(W, y + this.rowH); g.stroke();
     }
     // grid: bars, beats, snap

@@ -56,3 +56,4 @@ select.btn { width: auto; display: inline-block; }
 .home-links { line-height: 2.2; padding-left: 18px; }
 .backing { margin-bottom: 14px; }
 .backing .name { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track [hidden] { display: none !important; }

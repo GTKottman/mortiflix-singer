@@ -1,6 +1,6 @@
 // Mortiflix Singer editor: one screen (tracks, piano roll with words on notes, lanes, inspector), rendering through
 // the singer service phrase by phrase while you edit.
-import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ } from './model.js';
+import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES } from './model.js';
 import { Roll } from './roll.js';
 import { Lanes } from './lanes.js';
 import { Player } from './player.js';
@@ -114,7 +114,7 @@ function tracks() {
   const p = app.project(), box = $('tracks'); box.textContent = '';
   for (const t of p.tracks) {
     const el = document.createElement('div'); el.className = `track${t.id === app.track().id ? ' on' : ''}`;
-    el.innerHTML = `<input class="name" value=""><div class="row"><select class="voice"></select><select class="mode"></select></div>
+    el.innerHTML = `<input class="name" value=""><div class="row"><select class="voice"></select><select class="mode"></select><label class="mstr-l" title="how strongly the vocal mode is applied">Strength <input class="mstr num" type="number" min="0" max="200" step="10">%</label></div>
       <div class="row"><span class="ms m" title="mute">M</span><span class="ms s" title="solo">S</span>
       <label title="volume in dB">dB <input class="gain num" type="number" step="0.5"></label>
       <label title="move the part by octaves (semitones)">Shift <input class="tr num" type="number" step="12"></label></div>`;
@@ -128,6 +128,8 @@ function tracks() {
     el.querySelector('.name').onchange = (e) => set('rename track', 'name', e.target.value);
     vs.onchange = (e) => set('voice', 'voice', e.target.value);
     ms.onchange = (e) => set('vocal mode', 'mode', e.target.value);
+    const str = el.querySelector('.mstr'); str.value = Math.round((t.mode_strength ?? 1) * 100); el.querySelector('.mstr-l').hidden = (t.mode || 'Default') === 'Default';
+    str.onchange = (e) => set('mode strength', 'mode_strength', Number(e.target.value) / 100);
     el.querySelector('.m').onclick = () => set('mute', 'mute', !t.mute);
     el.querySelector('.s').onclick = () => set('solo', 'solo', !t.solo);
     el.querySelector('.gain').onchange = (e) => set('volume', 'gain_db', Number(e.target.value));
@@ -187,12 +189,16 @@ function inspector() {
     <label>Vib. rate</label><input id="i-vr" type="number" min="3" max="9" step="0.1">
     <label>Vib. start</label><input id="i-vs" type="number" min="0" max="2000" step="10" title="ms after the note starts">
     <label>Lead-in</label><input id="i-lead" type="number" min="20" max="600" step="10" placeholder="auto" title="how early the consonants before the vowel start, ms">
+    <label>Glide</label><input id="i-glide" type="number" min="10" max="1000" step="10" placeholder="auto" title="how long the slide from the previous note takes, ms">
+    <label>Glide at</label><input id="i-goff" type="number" min="-500" max="500" step="10" title="where the slide is centred, ms after the note starts (negative = early)">
     </div><p><button id="i-retake" class="btn tiny" title="A new take of this phrase (R)">Retake phrase</button> <button id="i-take0" class="btn tiny">First take</button> <span id="i-take" class="muted"></span></p><p class="phones" id="i-auto"></p><p class="warn" id="i-warn"></p>${many ? `<p class="muted">${sel.length} notes selected: changes apply to all.</p>` : ''}`;
   $('i-lyric').value = many ? '' : n.lyric || ''; $('i-ph').value = n.phonemes || ''; $('i-note').textContent = `${NAMES[n.pitch % 12]}${Math.floor(n.pitch / 12) - 1} · ${(n.dur / PPQ).toFixed(2)} beats`;
   $('i-vel').value = n.vel ?? 64; $('i-vd').value = n.vib_depth ?? 0; $('i-vr').value = n.vib_rate ?? 5.5; $('i-vs').value = n.vib_start ?? 250;
   const setn = (k, conv = (v) => v) => (e) => app.edit(k, (p) => { for (const m of app.trackOf(p).notes) if (app.sel.has(m.id)) m[k] = conv(e.target.value); });
   $('i-lyric').onchange = setn('lyric', (v) => v.trim() || 'la'); $('i-ph').onchange = setn('phonemes', (v) => v.trim() || null);
   $('i-lead').value = n.lead ?? ''; $('i-lead').onchange = setn('lead', (v) => (v === '' ? null : Number(v)));
+  $('i-glide').value = n.glide ?? ''; $('i-glide').onchange = setn('glide', (v) => (v === '' ? null : Number(v)));
+  $('i-goff').value = n.glide_offset ?? 0; $('i-goff').onchange = setn('glide_offset', Number);
   const ph = phraseOf(n); $('i-take').textContent = ph ? `take ${ph.take + 1}` : '';
   $('i-retake').onclick = () => retake(n, +1); $('i-take0').onclick = () => retake(n, 0);
   $('i-vel').onchange = setn('vel', Number); $('i-vd').onchange = setn('vib_depth', Number); $('i-vr').onchange = setn('vib_rate', Number); $('i-vs').onchange = setn('vib_start', Number);
@@ -205,6 +211,7 @@ function changed(label) {
   app.dirty = true; store.set('singer-autosave', { name: app.name, project: app.project() });
   if (!app.project().tracks.some((t) => t.id === app.trackId)) app.trackId = app.project().tracks[0].id;
   $('title').value = app.project().title || ''; $('bpm').value = app.project().tempo[0].bpm; $('ts').value = app.project().time_sig.join('/');
+  const k = app.project().key; $('key-root').value = k ? String(k.root) : ''; $('key-scale').value = k?.scale || 'major';
   tracks(); backing(); inspector(); draw();
   if (!['select'].includes(label) && !/backing/.test(label || '')) scheduleRender();
 }
@@ -282,6 +289,10 @@ async function init() {
   };
   $('export').onchange = (e) => { const k = e.target.value; e.target.value = ''; if (k) download(k); };
   $('title').onchange = (e) => app.edit('title', (p) => (p.title = e.target.value));
+  $('key-root').add(new Option('none', '')); ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].forEach((n, i) => $('key-root').add(new Option(n, String(i))));
+  for (const sc of Object.keys(SCALES)) $('key-scale').add(new Option(sc, sc));
+  const setKey = () => app.edit('key', (p) => { const r = $('key-root').value; if (r === '') delete p.key; else p.key = { root: Number(r), scale: $('key-scale').value }; });
+  $('key-root').onchange = setKey; $('key-scale').onchange = setKey;
   $('bpm').onchange = (e) => app.edit('tempo', (p) => (p.tempo[0].bpm = Math.max(20, Math.min(300, Number(e.target.value) || 120))));
   $('ts').onchange = (e) => { const m = /^(\d+)\/(\d+)$/.exec(e.target.value.trim()); if (m) app.edit('time signature', (p) => (p.time_sig = [Number(m[1]), Number(m[2])])); };
   $('guide').onchange = (e) => (app.guide = e.target.checked);

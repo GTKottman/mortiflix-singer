@@ -99,14 +99,16 @@ def track_words(voice: Voice, project, track):
             en.vib_depth = float(n.get('vib_depth') or 0); en.vib_rate = float(n.get('vib_rate') or 5.5)
             en.vib_start = float(n.get('vib_start') or 250)
             en.lead = float(n['lead']) if n.get('lead') not in (None, '') else None
+            en.glide = float(n['glide']) if n.get('glide') not in (None, '') else None
+            en.glide_offset = float(n.get('glide_offset') or 0)
             v = n.get('vel', 64)
             en.energy = 6 * (v - 64) / 63 if v >= 64 else 12 * (v - 64) / 63
     return words, tm
 
 
 def phrase_key(voice_id, words, track, lanes_sig, params):
-    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead) for n in w.notes] + [w.phonemes] for w in words],
-            'mode': track.get('mode', 'Default'), 'lanes': lanes_sig, 'p': params}
+    data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead, n.glide, n.glide_offset) for n in w.notes] + [w.phonemes] for w in words],
+            'mode': track.get('mode', 'Default'), 'ms': track.get('mode_strength', 1.0), 'lanes': lanes_sig, 'p': params}
     return hashlib.sha1(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
 
@@ -119,8 +121,10 @@ def render_track(voice: Voice, voice_id: str, project, track, cache: Path, quali
     params = dict(track.get('params') or {})
     steps = 8 if quality == 'preview' else int(params.get('steps', 20))
     mode = MODES.get(track.get('mode', 'Default'), {})
-    offsets = {k: v for k, v in mode.items() if not k.startswith('_')}
-    expr = mode.get('_expr', params.get('expr', 1.0))
+    strength = float(track.get('mode_strength', 1.0))           # 0 = off, 1 = as designed, 2 = twice as strong
+    offsets = {k: v * strength for k, v in mode.items() if not k.startswith('_')}
+    base_expr = params.get('expr', 1.0)
+    expr = base_expr + (mode['_expr'] - base_expr) * min(strength, 1.0) if '_expr' in mode else base_expr
     lanes = {k: f for k in LANES if (f := lane_fn((track.get('lanes') or {}).get(k), tm))}
     drawn = draw_fn(track.get('pitch_draw'), tm)
     out = []
