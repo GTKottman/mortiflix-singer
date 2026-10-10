@@ -1,0 +1,40 @@
+# The DAW plugin (VST3 + CLAP) for Windows, macOS (universal) and Linux, bundled with nih-plug's xtask.
+name: plugin
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+    paths: ['plugin/**', '.github/workflows/plugin.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, args: '' }
+          - { os: macos-14, args: '--target x86_64-apple-darwin --target aarch64-apple-darwin', universal: true }
+          - { os: ubuntu-22.04, args: '' }
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { working-directory: plugin } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "${{ matrix.universal && 'x86_64-apple-darwin,aarch64-apple-darwin' || '' }}" }
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libgl-dev libjack-dev libx11-xcb-dev libxcb1-dev libxcb-dri2-0-dev libxcb-icccm4-dev libxcursor-dev libxkbcommon-dev libxcb-shape0-dev libxcb-xfixes0-dev
+      - name: Tests
+        run: cargo test --lib
+      - name: Bundle
+        if: ${{ !matrix.universal }}
+        run: cargo xtask bundle mortiflix_singer_bridge --release
+      - name: Bundle (universal)
+        if: ${{ matrix.universal }}
+        run: cargo xtask bundle-universal mortiflix_singer_bridge --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mortiflix-singer-plugin-${{ matrix.os }}
+          path: plugin/target/bundled/*
+          if-no-files-found: error

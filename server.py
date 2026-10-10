@@ -7,7 +7,7 @@ is opened. Mortiflix Music forwards /api/singer/* to it and serves the web pages
 import argparse, io, json, os, re, socketserver, sys, threading, time, warnings
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 import numpy as np, soundfile as sf
 
 warnings.filterwarnings('ignore')
@@ -76,6 +76,17 @@ class Store:
     def project_file(self, name):
         if not re.match(r'^[\w .()-]{1,80}$', name): raise ValueError('bad project name')
         return self.projects_dir() / f'{name}.msing'
+
+    def write_mix(self, name, project, phrases_by_track):
+        """<project>.mix.json beside the project: what the DAW plugin plays (rendered phrases, track gain/pan/mute/solo,
+        the tempo map so it can follow the host's beat position)."""
+        f = self.project_file(name).with_suffix('.mix.json')
+        mix = {'version': 1, 'project': name, 'ppq': project.get('ppq', 480), 'tempo': project.get('tempo'), 'sample_rate': 44100,
+               'updated': time.time(),
+               'tracks': [{'id': t['id'], 'name': t.get('name', ''), 'gain_db': t.get('gain_db', 0), 'pan': t.get('pan', 0),
+                           'mute': bool(t.get('mute')), 'solo': bool(t.get('solo')), 'phrases': phrases_by_track.get(t['id'], [])}
+                          for t in project['tracks']]}
+        tmp = f.with_suffix('.tmp'); tmp.write_text(json.dumps(mix)); tmp.replace(f)
 
     def dataset(self, name):
         if not NAME.match(name): raise ValueError('bad voice name')
@@ -233,7 +244,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def route(self):
         u = urlparse(self.path); q = {k: v[0] for k, v in parse_qs(u.query).items()}
-        path = re.sub(r'^/api/singer', '', u.path)
+        path = re.sub(r'^/api/singer', '', unquote(u.path))      # project names arrive URL-encoded ("My%20song")
         name = q.get('name', 'you')
         return path, q, name
 
@@ -290,14 +301,17 @@ class Handler(BaseHTTPRequestHandler):
                 req = json.loads(body)
                 project, quality = req['project'], req.get('quality', 'final')
                 tracks = [t for t in project['tracks'] if not req.get('track') or t['id'] == req['track']]
-                result = {}
+                result, mix = {}, {}
                 with self.store.render_lock:
                     for t in tracks:
                         if not t['notes']: result[t['id']] = []; continue
                         v = self.store.voice(t.get('voice') or 'SPORE')
                         phrases = render_track(v, t.get('voice') or 'SPORE', project, t, self.store.home / 'cache', quality)
+                        if req.get('name') and quality == 'final': mix[t['id']] = [{'start_ms': m['start_ms'], 'file': m['file']} for m in phrases]
                         for m in phrases: m.pop('file', None); m['url'] = f"/api/singer/render/{m['hash']}.wav"
                         result[t['id']] = phrases
+                if req.get('name') and quality == 'final' and len(tracks) == len(project['tracks']):
+                    self.store.write_mix(req['name'], project, mix)
                 return self.send(200, {'tracks': result})
             if path == '/check':
                 from engine.checks import check_track
@@ -353,12 +367,20 @@ class Handler(BaseHTTPRequestHandler):
             self.send(500, {'error': str(e)})
 
 
-class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
-    daemon_threads = True
+if hasattr(socketserver, 'UnixStreamServer'):          # not on Windows: there the app uses --stdio
+    class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+        daemon_threads = True
 
-    def get_request(self):
-        req, _ = super().get_request()
-        return req, ('local', 0)      # BaseHTTPRequestHandler wants a (host, port) pair
+        def get_request(self):
+            req, _ = super().get_request()
+            return req, ('local', 0)      # BaseHTTPRequestHandler wants a (host, port) pair
+else:
+    Server = None
+
+
+class TCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
 
 
 def serve_stdio():
@@ -400,11 +422,18 @@ def main():
     home = Path(os.environ.get('SINGER_HOME', Path.home() / 'MortiflixSinger'))
     ap.add_argument('--home', default=str(home)); ap.add_argument('--socket')
     ap.add_argument('--stdio', action='store_true', help='serve requests framed on stdin/stdout (the desktop app)')
+    ap.add_argument('--port', type=int, help='serve on 127.0.0.1:PORT instead of a socket file (Windows development)')
     a = ap.parse_args()
     home = Path(a.home); home.mkdir(parents=True, exist_ok=True)
     if a.stdio:
         Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)
         return serve_stdio()
+    if a.port or Server is None:
+        if not a.port: raise SystemExit('this system has no socket files: use --stdio, or --port N for a loopback port')
+        Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)
+        srv = TCPServer(('127.0.0.1', a.port), Handler)
+        print(f'singer service on 127.0.0.1:{a.port}', flush=True)
+        return srv.serve_forever()
     sock = Path(a.socket or home / 'singer.sock')
     if sock.exists(): sock.unlink()
     Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store)

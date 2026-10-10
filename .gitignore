@@ -13,3 +13,5 @@ app/src-tauri/target/
 app/src-tauri/binaries/
 app/src-tauri/gen/
 trainer/.venv/
+plugin/target/
+plugin/dist/

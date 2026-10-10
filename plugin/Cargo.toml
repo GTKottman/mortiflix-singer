@@ -1,0 +1,22 @@
+[package]
+name = "mortiflix_singer_bridge"
+version = "0.1.0"
+edition = "2021"
+description = "Mortiflix Singer in your DAW: plays the rendered vocals in time with the host and captures MIDI for the editor"
+license = "GPL-3.0-or-later"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+hound = "3.5"
+serde_json = "1"
+
+[workspace]
+members = ["xtask"]
+
+[profile.release]
+lto = "thin"
+strip = "symbols"

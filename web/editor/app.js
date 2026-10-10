@@ -71,7 +71,7 @@ async function render(quality = 'final') {
   if (!p.tracks.some((t) => t.notes.length)) { status(''); return; }
   status(quality === 'final' ? 'Rendering (final)…' : 'Rendering…');
   try {
-    const r = await post('/render', { project: p, quality });
+    const r = await post('/render', { project: p, quality, name: app.name });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || r.statusText);
     if (seq !== renderSeq) return;
     app.renders = d.tracks;
