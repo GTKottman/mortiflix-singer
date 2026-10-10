@@ -26,7 +26,7 @@
   <button id="open" class="btn">Open</button>
   <button id="save" class="btn" title="Ctrl+S">Save</button>
   <label class="btn" title="MIDI, MusicXML, UTAU .ust, Synthesizer V .svp, Vocaloid .vsqx / .vpr, .msing">Import<input id="import" type="file" hidden accept=".mid,.midi,.musicxml,.xml,.ust,.svp,.vsqx,.vpr,.msing"></label>
-  <select id="export" class="btn" aria-label="Export"><option value="">Export…</option><option value="wav">WAV (vocals)</option><option value="wav-full">WAV (vocals + backing)</option><option value="wav-track">WAV (this track)</option><option value="mid">MIDI with lyrics</option><option value="musicxml">MusicXML</option><option value="msing">Project (.msing)</option><option value="bridge" id="bridge-opt" hidden>WAV in my voice (bridge)…</option></select>
+  <select id="export" class="btn" aria-label="Export"><option value="">Export…</option><option value="wav">WAV (vocals)</option><option value="wav-full">WAV (vocals + backing)</option><option value="wav-track">WAV (this track)</option><option value="stems">WAV stems (every track, zip)</option><option value="mid">MIDI with lyrics</option><option value="musicxml">MusicXML</option><option value="msing">Project (.msing)</option><option value="bridge" id="bridge-opt" hidden>WAV in my voice (bridge)…</option></select>
 </header>
 
 <div id="group-bar" class="group-bar" hidden>Editing group <b id="group-name"></b>: every copy of it follows. Times start at the group's first bar.

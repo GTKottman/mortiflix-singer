@@ -560,6 +560,22 @@ class Handler(BaseHTTPRequestHandler):
                         if not t['notes']: continue
                         v = self.store.voice(t.get('voice') or 'SPORE'); sr = v.sr
                         results[t['id']] = render_track(v, t.get('voice') or 'SPORE', project, t, self.store.home / 'cache', 'final')
+                if kind == 'stems':                    # every track on its own, from bar 1, in one zip
+                    import zipfile
+                    from scipy.signal import resample_poly
+                    from math import gcd
+                    rate = int(req.get('sample_rate') or sr); bits_ = {'16': 'PCM_16', '24': 'PCM_24', '32': 'FLOAT'}.get(str(req.get('bits', 24)), 'PCM_24')
+                    end = max((m['end_ms'] for r in results.values() for m in r), default=0)
+                    zbuf = io.BytesIO()
+                    with zipfile.ZipFile(zbuf, 'w', zipfile.ZIP_DEFLATED) as z:
+                        for t in project['tracks']:
+                            if t['id'] not in results: continue
+                            one = mixdown(sr, project, {t['id']: results[t['id']]}, [{**t, 'mute': False, 'solo': False}])
+                            one = np.pad(one, ((0, max(0, int((end / 1000 + 0.5) * sr) - len(one))), (0, 0)))
+                            if rate != sr: g = gcd(rate, sr); one = resample_poly(one, rate // g, sr // g, axis=0).astype(np.float32)
+                            w = io.BytesIO(); sf.write(w, one, rate, subtype=bits_, format='WAV')
+                            z.writestr(f"{re.sub(r'[^\w .()-]', '', t.get('name') or t['id'])}.wav", w.getvalue())
+                    return self.send(200, zbuf.getvalue(), 'application/zip')
                 tracks = [t for t in project['tracks'] if not req.get('track') or t['id'] == req['track']]
                 mix = mixdown(sr, project, results, tracks)
                 bk = project.get('backing') or {}
