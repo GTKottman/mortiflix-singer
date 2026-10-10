@@ -47,6 +47,18 @@ trainer/.venv/bin/python trainer/train.py --data ~/MortiflixSinger/train/you --n
 The voice lands in `~/MortiflixSinger/voices/you` and shows up in the editor's voice list. `trainer/make_synthetic.py`
 builds a labelled test set from an existing voice, for checking the pipeline (and the aligner) without recording.
 
+## In your DAW (FL Studio, Logic, Ableton, Reaper...)
+
+Put **Mortiflix Singer** (VST3, CLAP or AU) on an instrument track and pick a project: it plays that project's
+rendered vocals in time with the DAW (match the DAW's tempo to the project's). Render in the editor and the plugin
+picks up the new take within a second. *Open in the editor* jumps to the project; *Bounce to WAV* writes
+`Documents/Mortiflix Singer/Vocal - <project>.wav` from bar 1. *Capture MIDI* records what you play into the track
+and *Send to Singer* puts it in the editor's Inbox.
+
+On a computer without a graphics card, set **Renders from** to the computer that renders, e.g.
+`http://my-pc.tailnet.ts.net:4747` (Tailscale): the plugin fetches the renders from there and keeps a copy, so the
+song still plays when that computer is off.
+
 ## Use it from Mortiflix Music
 
 Mortiflix Music sings songs with vocals through any singer command that takes `--midi --tags --out --voice`:
