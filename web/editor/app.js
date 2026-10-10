@@ -26,7 +26,10 @@ const app = {
   onPlayhead(tick) {
     const lp = this.project().loop;                   // looping: past the loop's end, jump back to its start
     if (lp?.on && tick >= lp.end && player.playing) { this.seek(lp.start); return; }
-    this.playTick = tick; draw();
+    this.playTick = tick;
+    // the view pages along with the playhead (unless you are dragging something)
+    if (player.playing && roll && !roll.drag) { const x = roll.X(tick); if (x > roll.W - 40 || x < 52) roll.scrollTo(Math.max(0, tick - (roll.W - 52) * 0.1 / roll.pxPerTick)); }
+    draw();
   },
   previewPitch(m) { player.preview(m + (this.track()?.transpose || 0)); },
   nextLyric() { return 'la'; },
