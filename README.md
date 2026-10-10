@@ -25,6 +25,12 @@ Installers for Windows (.msi / .exe), macOS (.dmg) and Linux (.AppImage / .deb) 
 change (Actions tab, artifacts) and attached to releases. On first start the app offers the vocoder and a starter
 voice (SPORE, non-commercial) from their makers' releases; your own trained voice needs nothing else.
 
+The installers aren't code-signed yet, so the first start asks once:
+- **Windows:** "Windows protected your PC" → *More info* → *Run anyway*.
+- **macOS:** if it says the app "is damaged", run `xattr -dr com.apple.quarantine "/Applications/Mortiflix Singer.app"`
+  once (or right-click → Open).
+- **Linux:** `chmod +x Mortiflix*.AppImage` and run it, or install the .deb.
+
 ## Try it from the command line (developer preview)
 
 ```bash
