@@ -12,6 +12,8 @@ The starter voice is SPORE (non-commercial). For anything you release, use your 
 ## 2. Make it your voice
 
 1. **Booth** (Singer home → Booth). Allow the microphone, check the room, set your level, find your range.
+   Record on the computer that runs Singer (`http://localhost:4747/singer/`) or in the desktop app: browsers only
+   allow the microphone on secure pages, so the Tailscale address from another machine can't record.
 2. Sing the lines. You don't need to be in tune: the tuner shows where you are, *Follow me* moves the key to you,
    and takes are graded only for being steady and clear. A and B takes are kept.
 3. Four sittings of about 25 minutes (held vowels and scales, two halves of the balanced lines, then your songs,

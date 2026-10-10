@@ -14,6 +14,9 @@ const store = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)
 let ctx, mic, node, guideGain;
 const listeners = new Set();
 async function startAudio() {
+  if (!window.isSecureContext || !navigator.mediaDevices) {     // browsers only open the microphone on secure pages
+    throw new Error(`this page isn't secure, so the browser won't open the microphone. Open the Booth on this computer at http://localhost:4747/singer/booth.html (or in the desktop app)`);
+  }
   ctx = new AudioContext();
   mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
   await ctx.audioWorklet.addModule('tracker.worklet.js');
