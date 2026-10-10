@@ -63,6 +63,8 @@ export class Roll {
     if (y < RULER && e.shiftKey) { const t0 = this.snap(Math.max(0, this.T(x))); this.drag = { kind: 'loop', a: t0, b: t0 }; return; }   // shift-drag: loop region
     if (y < RULER) { app.seek(Math.max(0, this.T(x))); this.drag = { kind: 'seek' }; return; }
     if (x < KEYW) { app.previewPitch(this.P(y)); return; }
+    const hb = tool === 'select' && (this.phoneHandles || []).find((h) => Math.abs(h.x - x) <= 4 && y >= h.y - 11 && y <= h.y + 3);
+    if (hb) { this.drag = { kind: 'phb', ph: hb.ph, i: hb.i, x }; return; }      // a phoneme boundary
     const n = this.noteAt(e);
     const ref = !n && this.refAt(x, y);
     if (ref && tool !== 'pitch') {                   // a group instance: select it, drag to move it
@@ -96,10 +98,18 @@ export class Roll {
   }
   pitchAtY(y) { return this.top - (y - RULER) / this.rowH + 0.5; }
   move(e) {
-    const d = this.drag; if (!d) { const n = this.cv.matches(':hover') ? this.noteAt(e) : null; const { x } = this.pos(e); this.cv.style.cursor = n && this.X(n.tick + n.dur) - x < 7 ? 'ew-resize' : this.app.tool === 'draw' ? 'crosshair' : this.app.tool === 'pitch' ? 'crosshair' : 'default'; return; }
+    const d = this.drag; if (!d) {
+      const n = this.cv.matches(':hover') ? this.noteAt(e) : null; const { x, y } = this.pos(e);
+      const onHandle = this.app.tool === 'select' && (this.phoneHandles || []).some((h) => Math.abs(h.x - x) <= 4 && y >= h.y - 11 && y <= h.y + 3);
+      this.cv.style.cursor = onHandle || (n && this.X(n.tick + n.dur) - x < 7) ? 'ew-resize' : this.app.tool === 'draw' ? 'crosshair' : this.app.tool === 'pitch' ? 'crosshair' : 'default'; return;
+    }
     const { x, y } = this.pos(e), app = this.app;
     if (d.kind === 'seek') { app.seek(Math.max(0, this.T(x))); return; }
     if (d.kind === 'loop') { d.b = this.snap(Math.max(0, this.T(x))); this.draw(); return; }
+    if (d.kind === 'phb') {          // keep the boundary between its neighbours' starts and ends
+      const ph = d.ph.phones, tm = tempoMap(app.project()), X = (ms) => this.X(tm.toTick(ms));
+      d.x = Math.min(X(ph[d.i][2]) - 3, Math.max(X(ph[d.i - 1][1]) + 3, x)); this.draw(); return;
+    }
     if (d.kind === 'box') { d.b = { x, y }; this.draw(); return; }
     if (d.kind === 'pitch') { d.pts.push([this.T(x), this.pitchAtY(y)]); this.draw(); return; }
     const dt = this.snap((x - d.start.x) / this.pxPerTick), dp = Math.round(-(y - d.start.y) / this.rowH);
@@ -121,6 +131,19 @@ export class Roll {
   up(e) {
     const d = this.drag; this.drag = null; if (!d) return;
     const app = this.app;
+    if (d.kind === 'phb') {
+      const tm = tempoMap(app.project()), [, s1, e1] = d.ph.phones[d.i - 1], [, s2, e2] = d.ph.phones[d.i];
+      const at = tm.toMs(this.T(d.x)), f1 = (at - s1) / (e1 - s1), f2 = (e2 - at) / (e2 - s2);
+      const [owner, k] = d.ph.phone_words[d.i]; if (!owner || Math.abs(f1 - 1) < 0.02) { this.draw(); return; }
+      app.edit('phoneme length', (p) => {
+        const n = app.trackOf(p).notes.find((m) => m.id === owner); if (!n) return;
+        const count = Math.max(k + 1, ...d.ph.phone_words.filter((w) => w && w[0] === owner).map((w) => w[1] + 1));
+        const sc = Array.isArray(n.ph_scale) && n.ph_scale.length === count ? [...n.ph_scale] : Array(count).fill(1);
+        sc[k - 1] = Math.min(4, Math.max(0.1, sc[k - 1] * f1)); sc[k] = Math.min(4, Math.max(0.1, sc[k] * f2));
+        n.ph_scale = sc.map((v) => Math.round(v * 100) / 100);
+      });
+      return;
+    }
     if (d.kind === 'loop') {
       const [a, b] = [Math.min(d.a, d.b), Math.max(d.a, d.b)];
       if (b - a >= 30) app.edit('loop region', (p) => { p.loop = { start: a, end: b, on: true }; });
@@ -245,14 +268,21 @@ export class Roll {
     g.font = '10px Sora, sans-serif';
     const showPhones = this.pxPerTick > 0.2 && this.rowH >= 14;      // phonemes only when there is room to read them
     const allNotes = this.app.groupEdit ? t.notes : trackNotes(p, t);  // group copies' phonemes sit under their notes too
+    this.phoneHandles = [];
     for (const ph of r) {
-      for (const [sym, s] of showPhones ? ph.phones || [] : []) {
-        const x = this.X(msToTick(s)); if (x < KEYW || x > W) continue;
+      (showPhones ? ph.phones || [] : []).forEach(([sym, s], i) => {
+        const x = this.X(msToTick(s)); if (x < KEYW || x > W) return;
         const n = allNotes.find((m) => { const a = tm.toMs(m.tick); return s >= a - 400 && s < tm.toMs(m.tick + m.dur); });
         const y = n ? this.Y(n.pitch) + this.rowH + 10 : RULER + 12;
         g.fillStyle = c('--muted'); g.fillText(sym, x + 1, y);
-        g.strokeStyle = c('--muted'); g.globalAlpha = 0.4; g.beginPath(); g.moveTo(x, y - 9); g.lineTo(x, y + 1); g.stroke(); g.globalAlpha = 1;
-      }
+        // a boundary inside one word can be dragged (it sets the two phonemes' lengths)
+        const pw = ph.phone_words || [], inWord = i > 0 && pw[i] && pw[i - 1] && pw[i][0] === pw[i - 1][0] && !this.app.groupEdit;
+        const dragging = this.drag?.kind === 'phb' && this.drag.ph === ph && this.drag.i === i;
+        g.strokeStyle = dragging ? c('--accent') : c('--muted'); g.globalAlpha = dragging ? 1 : inWord ? 0.75 : 0.4; g.lineWidth = inWord ? 1.5 : 1;
+        const hx = dragging ? this.drag.x : x;
+        g.beginPath(); g.moveTo(hx, y - 9); g.lineTo(hx, y + 1); g.stroke(); g.globalAlpha = 1; g.lineWidth = 1;
+        if (inWord) this.phoneHandles.push({ x, y, ph, i });
+      });
       g.strokeStyle = ink; g.lineWidth = 1.4; g.beginPath(); let first = true;
       for (const [ms, midi] of ph.pitch || []) {          // the sung pitch, through the middle of each note's row
         const x = this.X(msToTick(ms)), y = this.Y(midi) + this.rowH / 2;

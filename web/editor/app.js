@@ -649,7 +649,7 @@ function demo() {
 }
 // The scripting API (Synthesizer V has one; so do we): window.singer in the browser console or a script.
 window.singer = {
-  app, render, save, open, applyLyrics, togglePlay, check, retake, makeGroup, duplicateSel, splitSel, mergeSel, enterGroup, leaveGroup, midiNote: (pitch, vel = 90) => stepNote(pitch, app.snapTicks() || PPQ / 2, vel),
+  app, get roll() { return roll; }, render, save, open, applyLyrics, togglePlay, check, retake, makeGroup, duplicateSel, splitSel, mergeSel, enterGroup, leaveGroup, midiNote: (pitch, vel = 90) => stepNote(pitch, app.snapTicks() || PPQ / 2, vel),
   project: () => app.project(), track: () => app.track(),
   edit: (label, fn) => app.edit(label, fn),
   select: (ids) => { app.sel = new Set(ids); app.changed('select'); },

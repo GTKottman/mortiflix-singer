@@ -187,6 +187,15 @@ def render_track(voice: Voice, voice_id: str, project, track, cache: Path, quali
             meta_f.write_text(json.dumps(meta))
         meta['file'] = str(wav_f); meta['first_tick'] = first_tick; meta['take'] = take; meta['tone'] = tone
         meta['note_ids'] = [n['id'] for n in track['notes'] if any(abs(tm.to_ms(n['tick']) - en.start) < 0.5 for w in ph for en in w.notes)]
+        # which word each sung phoneme belongs to: [first note id of the word, index in the word] (the roll's draggable
+        # phoneme boundaries edit that word's lengths); matched in order, skipping the breath words' AP
+        by_start = {round(tm.to_ms(n['tick']), 3): n['id'] for n in track['notes']}
+        seq = [(by_start.get(round(w.notes[0].start, 3)), k, q) for w in ph for k, q in enumerate(w.phonemes)]
+        owners, j = [], 0
+        for q, _, _ in meta['phones']:
+            while j < len(seq) and seq[j][2] != q: j += 1
+            owners.append([seq[j][0], seq[j][1]] if j < len(seq) else None); j += 1
+        meta['phone_words'] = owners
         out.append(meta)
         if on_phrase: on_phrase(i, meta)
     return out
