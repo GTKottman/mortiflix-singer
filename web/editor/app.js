@@ -375,6 +375,12 @@ async function init() {
 
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
   $('midi').onclick = toggleMidi;
+  fetch(`${API}/scripts`).then((r) => r.json()).then((list) => { for (const sc of list) $('scripts').add(new Option(sc.kind === 'yours' ? `${sc.title} (yours)` : sc.title, sc.file)); }).catch(() => {});
+  $('scripts').onchange = async (e) => {
+    const f = e.target.value; e.target.value = ''; if (!f) return;
+    try { const mod = await import(`${API}/scripts/${f}?v=${Date.now()}`); await mod.default(window.singer); status(`Ran "${mod.title || f}"`); }
+    catch (err) { status(`Script failed: ${err.message}`); }
+  };
   $('play').onclick = togglePlay; $('render').onclick = () => render('final'); $('check').onclick = check;
   $('save').onclick = save; $('open').onclick = openDialog; $('open-close').onclick = () => $('open-dlg').close();
   $('new').onclick = () => { open(newProject('Untitled', 120)); $('open-dlg').close(); };

@@ -28,6 +28,7 @@ def main():
             '--specpath', str(BUILD),
             '--add-data', f'{ROOT / "booth" / "script.json"}{sep}booth',
             '--add-data', f'{nltk_dir}{sep}nltk_data',
+            '--add-data', f'{ROOT / "scripts"}{sep}scripts',
             '--collect-data', 'g2p_en', '--collect-data', 'faster_whisper',
             '--collect-binaries', 'onnxruntime', '--collect-binaries', 'ctranslate2',
             '--hidden-import', 'engine.checks', '--hidden-import', 'engine.formats',

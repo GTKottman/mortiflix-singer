@@ -285,6 +285,16 @@ class Handler(BaseHTTPRequestHandler):
                 f = self.store.home / 'backing' / m.group(1)
                 types = {'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'flac': 'audio/flac', 'ogg': 'audio/ogg'}
                 return self.send(200, f.read_bytes(), types[m.group(2)]) if f.exists() else self.send(404, {'error': 'no such backing track'})
+            if path == '/scripts':                     # editor scripts: bundled examples + your own (~/MortiflixSinger/scripts)
+                out = []
+                for base, kind in ((HERE / 'scripts', 'bundled'), (self.store.home / 'scripts', 'yours')):
+                    for f in sorted(base.glob('*.js')) if base.exists() else []:
+                        m = re.search(r"export const title = ['\"](.+?)['\"]", f.read_text(errors='replace'))
+                        out.append({'file': f'{kind}/{f.name}', 'title': m.group(1) if m else f.stem, 'kind': kind})
+                return self.send(200, out)
+            if (m := re.match(r'^/scripts/(bundled|yours)/([\w.-]+\.js)$', path)):
+                f = (HERE / 'scripts' if m.group(1) == 'bundled' else self.store.home / 'scripts') / m.group(2)
+                return self.send(200, f.read_bytes(), 'text/javascript') if f.exists() else self.send(404, {'error': 'no such script'})
             if path == '/inbox':                       # MIDI sent from the DAW plugin
                 d = self.store.home / 'inbox'
                 files = sorted(d.glob('*.mid'), key=lambda f: -f.stat().st_mtime) if d.exists() else []
