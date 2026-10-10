@@ -124,6 +124,20 @@ async function check() {
   for (const t of res.tuning) item(`${t.cents > 0 ? '+' : ''}${t.cents} cents`, [t.note], Math.abs(t.cents) > 50);
   for (const t of res.timing || []) item(`vowel ${t.ms > 0 ? `${t.ms} ms late` : `${-t.ms} ms early`}`, [t.note], Math.abs(t.ms) > 80);
   if (!res.words.some((x) => !x.ok) && !res.tuning.length && !(res.timing || []).length) item('Every word clear, every note in tune and on time.', [], false);
+  if (res.words.some((x) => !x.ok)) {
+    const fix = document.createElement('button'); fix.className = 'btn tiny'; fix.textContent = 'Fix unclear words (try new takes)';
+    fix.onclick = async () => {
+      fix.disabled = true; status('Trying new takes of the unclear phrases…');
+      const r = await post('/check/fix', { project: app.project(), track: app.track().id }), d = await r.json();
+      if (!r.ok) { status(`Fix failed: ${d.error}`); fix.disabled = false; return; }
+      const picks = Object.entries(d.phrases);
+      app.edit('fix unclear words', (p) => { const t = app.trackOf(p); t.takes = t.takes || {}; t.tone_takes = t.tone_takes || {}; t.take_max = t.take_max || {};
+        for (const [ft, x] of picks) { t.takes[ft] = x.take; t.tone_takes[ft] = 0; const mx = t.take_max[ft] || { p: 0, q: 0 }; mx.p = Math.max(mx.p, x.take + 0); t.take_max[ft] = mx; } });
+      const left = picks.reduce((a, [, x]) => a + x.unclear, 0);
+      status(`Kept the clearest takes: ${left} word${left === 1 ? '' : 's'} still unclear`); await render('final'); check();
+    };
+    box.append(fix);
+  }
   status('Checked');
 }
 

@@ -73,3 +73,18 @@ def check_track(project, track, phrases, diction=True, match=0.65):
             words_out.append({'word': w, 'notes': nids, 'ok': score >= match, 'score': round(score, 2), 'heard': heard})
     return {'tuning': tuning, 'words': words_out, 'timing': timing,
             'summary': {'words': len(words_out), 'unclear': sum(not w['ok'] for w in words_out), 'off_notes': len(tuning), 'late_notes': len(timing)}}
+
+
+def phrase_score(project, track, ph, match=0.65):
+    """How clearly one rendered phrase sings its words: (mean letter score, words below the bar)."""
+    ids = set(ph.get('note_ids', []))
+    want = [w for w in words_of_track(project, track) if ids & set(w[1])]
+    if not want: return 1.0, 0
+    heard = hear(ph['file'], track.get('lang', 'en'))
+    W = ''.join(norm(w) for w, _ in want); H = norm(heard)
+    hit = np.zeros(len(W), bool)
+    for blk in difflib.SequenceMatcher(a=W, b=H, autojunk=False).get_matching_blocks(): hit[blk.a:blk.a + blk.size] = True
+    k, scores = 0, []
+    for w, _ in want:
+        L = len(norm(w)); scores.append(float(hit[k:k + L].mean()) if L else 1.0); k += L
+    return float(np.mean(scores)), sum(x < match for x in scores)

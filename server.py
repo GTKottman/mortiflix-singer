@@ -495,6 +495,28 @@ class Handler(BaseHTTPRequestHandler):
                         phrases = render_track(v, t.get('voice') or 'SPORE', project, t, self.store.home / 'cache', 'final')
                         out[t['id']] = check_track(project, t, phrases, diction=req.get('diction', True))
                 return self.send(200, {'tracks': out})
+            if path == '/check/fix':                # unclear words: try a few takes of each such phrase, keep the clearest
+                from engine.checks import check_track, phrase_score
+                req = json.loads(body); project = expand_groups(req['project']); tries = int(req.get('tries', 3))
+                t = next(x for x in project['tracks'] if x['id'] == req['track'])
+                v = self.store.voice(t.get('voice') or 'SPORE'); cache = self.store.home / 'cache'
+                out = {}
+                with self.store.render_lock:
+                    base = render_track(v, t.get('voice') or 'SPORE', project, t, cache, 'final')
+                    res = check_track(project, t, base)
+                    bad = {nid for w in res['words'] if not w['ok'] for nid in w['notes']}
+                    for ph in base:
+                        if not bad & set(ph.get('note_ids', [])): continue
+                        ft = str(ph['first_tick']); start = int((t.get('takes') or {}).get(ft, 0))
+                        best = (phrase_score(project, t, ph), start)
+                        for k in range(start + 1, start + 1 + tries):
+                            t2 = {**t, 'takes': {**(t.get('takes') or {}), ft: k}, 'tone_takes': {**(t.get('tone_takes') or {}), ft: 0}}
+                            cand = next(x for x in render_track(v, t.get('voice') or 'SPORE', project, t2, cache, 'final') if str(x['first_tick']) == ft)
+                            sc = phrase_score(project, t2, cand)
+                            if (sc[1], -sc[0]) < (best[0][1], -best[0][0]): best = (sc, k)
+                            if sc[1] == 0: break
+                        out[ft] = {'take': best[1], 'unclear': best[0][1], 'tried': k - start}
+                return self.send(200, {'phrases': out})
             if path == '/phonemize':
                 req = json.loads(body)
                 v = self.store.voice(req.get('voice') or 'SPORE')

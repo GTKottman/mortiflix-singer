@@ -98,6 +98,13 @@ def install(home: Path, sources: Path, progress=print):
         gpu = shutil.which('nvidia-smi') is not None and sys.platform != 'darwin'
         progress('Installing PyTorch' + (' for your NVIDIA card' if gpu else ''))
         run('pip', 'install', '-q', '-p', python_of(home), 'torch', 'torchaudio', *(['--index-url', 'https://download.pytorch.org/whl/cu124'] if gpu else []))
+        if os.name == 'nt':          # a fresh Windows lacks the Visual C++ runtime PyTorch needs: put it in the venv itself
+            progress('Adding the Visual C++ runtime')
+            run('pip', 'install', '-q', '-p', python_of(home), 'msvc-runtime')
+            site = venv / 'Lib' / 'site-packages'
+            (site / 'sitecustomize.py').write_text(
+                '# Mortiflix Singer training kit: the Visual C++ runtime DLLs live in the venv (msvc-runtime)\n'
+                'import os, sys\nif os.name == "nt":\n    os.add_dll_directory(sys.prefix)\n')
         progress('Installing the training libraries')
         run('pip', 'install', '-q', '-p', python_of(home), '-r', ds / 'requirements.txt', *DEPS)
         progress('Getting the pronunciation dictionary')
