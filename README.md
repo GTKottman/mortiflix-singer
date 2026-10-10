@@ -38,6 +38,19 @@ trainer/.venv/bin/python trainer/train.py --data ~/MortiflixSinger/train/you --n
 The voice lands in `~/MortiflixSinger/voices/you` and shows up in the editor's voice list. `trainer/make_synthetic.py`
 builds a labelled test set from an existing voice, for checking the pipeline (and the aligner) without recording.
 
+## Use it from Mortiflix Music
+
+Mortiflix Music sings songs with vocals through any singer command that takes `--midi --tags --out --voice`:
+
+```bash
+mortiflix-music setup voice --singer "$PWD/.venv/bin/python $PWD/singer.py" --voice ~/MortiflixSinger/voices/you
+```
+
+## Use it from Claude
+
+`mcp/singer_mcp.py` is an MCP server (sing a melody, import a file, set lyrics, render, check every word, export,
+follow training): `claude mcp add singer -s user -- python3 $PWD/mcp/singer_mcp.py`.
+
 ## Plan
 
 The full design (every component, the app, the plugin, the recording booth, training, licensing, build order) is in

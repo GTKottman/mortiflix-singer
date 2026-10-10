@@ -112,7 +112,19 @@ def run(args, log):
     if p.returncode: raise SystemExit(f'failed ({p.returncode}); see {log}')
 
 
-def package(work, name, out):
+def sung_range(data):
+    """The lowest and highest notes in the recordings (10th/90th percentile), so the singer can place melodies."""
+    import csv
+    import numpy as np
+    names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    ms = [names.index(n[:-1]) + 12 * (int(n[-1]) + 1) for r in csv.DictReader(open(data / 'transcriptions.csv'))
+          for n in r.get('note_seq', '').split() if n != 'rest' and n[-1].isdigit()]
+    if not ms: return None
+    lo, hi = (int(round(x)) for x in np.percentile(ms, [10, 90]))
+    return [f'{names[lo % 12]}{lo // 12 - 1}', f'{names[hi % 12]}{hi // 12 - 1}']
+
+
+def package(work, name, out, data=None):
     """DiffSinger's two export folders -> one voice folder in the engine's layout (SPORE's)."""
     out.mkdir(parents=True, exist_ok=True)
     a, v = work / 'export-acoustic', work / 'export-variance'
@@ -127,7 +139,8 @@ def package(work, name, out):
             try: os.link(f, dst)
             except OSError: shutil.copy2(f, dst)
     shutil.copy2(work / 'dictionary-en.txt', out / 'dictionary-en.txt')
-    (out / 'character.yaml').write_text(yaml.safe_dump({'name': name, 'text_file_encoding': 'utf-8'}))
+    (out / 'character.yaml').write_text(yaml.safe_dump({'name': name, 'text_file_encoding': 'utf-8', 'range': sung_range(data) if data else None,
+                                                        'license': 'yours: trained on your own recordings', 'commercial': True}))
     cfg = yaml.safe_load((out / 'dsconfig.yaml').read_text())
     cfg['vocoder'] = VOCODER
     (out / 'dsconfig.yaml').write_text(yaml.safe_dump(cfg, sort_keys=False))
@@ -176,7 +189,7 @@ def main():
     if 'export' in stages:
         run([str(HERE / 'ds_export.py'), 'acoustic', '--exp', exp_a, '--out', work / 'export-acoustic'], log)
         run([str(HERE / 'ds_export.py'), 'variance', '--exp', exp_v, '--out', work / 'export-variance'], log)
-        out = package(work, a.name, Path(a.voices) / a.name)
+        out = package(work, a.name, Path(a.voices) / a.name, data)
         state['export'] = str(out); save()
         print(f'voice -> {out}')
 

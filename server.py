@@ -20,10 +20,6 @@ from engine import formats
 from engine.project import render_track, mixdown, new_project, MODES, expand_groups
 from engine.song import phonemes as phonemize
 
-VOICE_INFO = {   # what we know about voices that don't say it themselves
-    'SPORE': {'range': ['F#3', 'G4'], 'license': 'CC BY-NC-ND 4.0: non-commercial use only, credit Knoxstation', 'commercial': False},
-}
-
 SCRIPT = json.loads((HERE / 'booth/script.json').read_text())
 LINES = {r['id']: r for r in SCRIPT}
 ID = re.compile(r'^[A-Z]\d{4}$')
@@ -36,48 +32,26 @@ class Store:
         self.home = home
         self.voices_cache, self.render_lock = {}, threading.Lock()
 
-    # ---- voices ----
+    # ---- voices (the rules live in engine/voices.py, shared with the CLI and the MCP) ----
     def voice_dirs(self):
-        found = {}
-        for base in (self.home / 'voices', HERE / 'voices'):
-            if not base.exists(): continue
-            for top, dirs, files in os.walk(base, followlinks=True):    # voices may be linked in from elsewhere
-                if 'dsconfig.yaml' not in files: continue
-                d = Path(top)
-                if d.name in ('dsdur', 'dspitch', 'dsvariance'): continue
-                found.setdefault(d.name, d)
-        return found
+        from engine import voices
+        return voices.voice_dirs(self.home)
 
-    def vocoder_dir(self, want=None):
-        """The vocoder a voice asks for in its dsconfig ('vocoder: <name>'), found by its vocoder.yaml name or folder;
-        voices that don't say (or say nsf_hifigan) get the OpenVPI NSF-HiFiGAN."""
-        import yaml
-        want = want or 'nsf_hifigan'
-        for base in (self.home / 'voices', HERE / 'voices'):
-            if not base.exists(): continue
-            for y in base.glob('*/vocoder.yaml'):
-                name = (yaml.safe_load(y.read_text()) or {}).get('name', '')
-                if want in (y.parent.name, name) or (want == 'nsf_hifigan' and y.parent.name == 'nsf_hifigan'): return y.parent
-        hint = 'install it on the Singer home page (Voices)'
-        raise FileNotFoundError(f'no vocoder "{want}" yet: {hint}')
+    def vocoder_dir(self, voice_dir):
+        from engine import voices
+        return voices.vocoder_dir(voice_dir, self.home)
 
     def voice(self, name):
         from engine.ds import Voice
         if name not in self.voices_cache:
             dirs = self.voice_dirs()
             if name not in dirs: raise ValueError(f'no voice "{name}" (installed: {", ".join(dirs) or "none"})')
-            import yaml
-            want = (yaml.safe_load((dirs[name] / 'dsconfig.yaml').read_text()) or {}).get('vocoder')
-            self.voices_cache[name] = Voice(dirs[name], self.vocoder_dir(want))
+            self.voices_cache[name] = Voice(dirs[name], self.vocoder_dir(dirs[name]))
         return self.voices_cache[name]
 
     def voices(self):
-        out = []
-        for name, d in self.voice_dirs().items():
-            info = {'name': name, **VOICE_INFO.get(name, {'range': None, 'license': 'see the voice folder', 'commercial': None})}
-            info['image'] = (d / 'icon.png').exists()
-            out.append(info)
-        return out
+        from engine import voices
+        return [{'name': name, **voices.info(d), 'image': (d / 'icon.png').exists()} for name, d in self.voice_dirs().items()]
 
     # ---- projects ----
     def projects_dir(self):
