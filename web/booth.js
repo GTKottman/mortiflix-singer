@@ -263,6 +263,21 @@ async function record() {
       const why = r.grade === 'A' ? 'Kept. On to the next line.' : r.grade === 'B' ? 'Kept (it will be cleaned up later).' : 'One more try?';
       $('result').innerHTML = `<span class="grade">${r.grade}</span>${why}<br>${(r.problems || []).map((p) => `<span class="muted">${p}</span>`).join('<br>')}${r.key_offset ? `<br><span class="muted">You sang ${Math.abs(r.key_offset)} semitone${Math.abs(r.key_offset) === 1 ? '' : 's'} ${r.key_offset < 0 ? 'below' : 'above'} the guide. That's fine.</span>` : ''}`;
       $('redo').disabled = false;
+      // hear it back; a C take can still be kept if you like it
+      const row = document.createElement('div'); row.className = 'take-actions';
+      const hear = document.createElement('button'); hear.className = 'btn'; hear.textContent = 'Hear it';
+      const audio = document.createElement('audio'); audio.hidden = true; row.append(audio);
+      hear.onclick = () => { audio.src = `${API}/booth/take.wav?name=${encodeURIComponent(name)}&id=${line.id}&take=${r.take}`; audio.play(); };
+      row.append(hear);
+      if (r.grade === 'C') {
+        const keep = document.createElement('button'); keep.className = 'btn'; keep.textContent = 'Keep it anyway';
+        keep.onclick = async () => {
+          await fetch(`${API}/booth/keep?name=${encodeURIComponent(name)}&id=${line.id}&take=${r.take}`, { method: 'POST', headers: { 'x-mortiflix': '1' } });
+          keep.disabled = true; keep.textContent = 'Kept'; await loadState();
+        };
+        row.append(keep);
+      }
+      $('result').append(row);
       await loadState();
     } catch (e) { $('result').textContent = `Couldn't check the take: ${e.message}`; }
     $('rec').disabled = false;

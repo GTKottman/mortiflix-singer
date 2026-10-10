@@ -52,3 +52,4 @@ input#name { margin: 0 10px; padding: 6px 8px; background: transparent; color: v
 .banner[hidden], .finish[hidden] { display: none; }
 .finish { border-left: 3px solid #3ccf7d; padding: 10px 14px; margin: 8px 0 14px; }
 .finish p { margin: 6px 0 10px; }
+.take-actions { display: flex; gap: 8px; margin-top: 10px; }
