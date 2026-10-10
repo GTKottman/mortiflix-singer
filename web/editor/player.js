@@ -1,6 +1,6 @@
 // Playback: rendered phrases scheduled on the song timeline (per-track gain, pan, mute, solo); notes not rendered
 // yet play as a soft guide tone so the song is always audible while it renders.
-import { tempoMap } from './model.js';
+import { tempoMap, trackNotes } from './model.js';
 
 export class Player {
   constructor(app) { this.app = app; this.ctx = null; this.buffers = new Map(); this.nodes = []; this.playing = false; this.startAt = 0; this.startMs = 0; }
@@ -52,7 +52,7 @@ export class Player {
           this.nodes.push(src);
         });
       }
-      if (this.app.guide) for (const n of t.notes) {      // guide tones for what isn't rendered
+      if (this.app.guide) for (const n of trackNotes(p, t)) {      // guide tones for what isn't rendered (group copies too)
         const a = tm.toMs(n.tick), b = tm.toMs(n.tick + n.dur);
         if (b < from || covered(a + 1)) continue;
         this.tone(n.pitch + (t.transpose || 0), t0 + Math.max(0, a - from) / 1000, (b - Math.max(a, from)) / 1000, 0.08, g);

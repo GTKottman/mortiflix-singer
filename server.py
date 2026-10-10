@@ -17,7 +17,7 @@ if getattr(sys, 'frozen', False):          # the desktop app's bundled service: 
 sys.path.insert(0, str(HERE))
 from booth.grade import grade
 from engine import formats
-from engine.project import render_track, mixdown, new_project, MODES
+from engine.project import render_track, mixdown, new_project, MODES, expand_groups
 from engine.song import phonemes as phonemize
 
 VOICE_INFO = {   # what we know about voices that don't say it themselves
@@ -334,7 +334,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {'take': k, **g})
             if path == '/render':
                 req = json.loads(body)
-                project, quality = req['project'], req.get('quality', 'final')
+                project, quality = expand_groups(req['project']), req.get('quality', 'final')
                 tracks = [t for t in project['tracks'] if not req.get('track') or t['id'] == req['track']]
                 result, mix = {}, {}
                 with self.store.render_lock:
@@ -350,7 +350,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {'tracks': result})
             if path == '/check':
                 from engine.checks import check_track
-                req = json.loads(body); project = req['project']
+                req = json.loads(body); project = expand_groups(req['project'])
                 out = {}
                 with self.store.render_lock:
                     for t in project['tracks']:
@@ -381,7 +381,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/import':
                 return self.send(200, formats.load(body, q.get('filename', 'file.mid')))
             if path == '/export':
-                req = json.loads(body); project = req['project']; kind = req.get('format', 'wav')
+                req = json.loads(body); kind = req.get('format', 'wav')
+                project = req['project'] if kind == 'msing' else expand_groups(req['project'])   # .msing keeps its groups
                 if kind == 'mid': return self.send(200, formats.to_midi(project), 'audio/midi')
                 if kind == 'musicxml': return self.send(200, formats.to_musicxml(project), 'application/vnd.recordare.musicxml+xml')
                 if kind == 'msing': return self.send(200, json.dumps(project, indent=1).encode(), 'application/json')

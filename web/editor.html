@@ -29,6 +29,8 @@
   <select id="export" class="btn" aria-label="Export"><option value="">Export…</option><option value="wav">WAV (vocals)</option><option value="wav-full">WAV (vocals + backing)</option><option value="wav-track">WAV (this track)</option><option value="mid">MIDI with lyrics</option><option value="musicxml">MusicXML</option><option value="msing">Project (.msing)</option></select>
 </header>
 
+<div id="group-bar" class="group-bar" hidden>Editing group <b id="group-name"></b>: every copy of it follows. Times start at the group's first bar.
+  <button id="group-done" class="btn tiny primary">Done (Esc)</button></div>
 <div class="ed-body">
   <aside class="ed-tracks">
     <div class="pane-head">Tracks <button id="add-track" class="btn tiny">Add</button></div>

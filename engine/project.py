@@ -109,6 +109,25 @@ def track_words(voice: Voice, project, track):
     return words, tm
 
 
+def expand_groups(project):
+    """Note groups -> plain notes. A group is stored once (project['groups'][gid]['notes'], ticks from the group's
+    start); tracks place it with refs [{id, group, tick, transpose}]. Each instance's notes get ids '<ref>~<note>'."""
+    groups = project.get('groups') or {}
+    if not groups or not any(t.get('refs') for t in project.get('tracks', [])): return project
+    out = dict(project); out['tracks'] = []
+    for t in project['tracks']:
+        t2 = dict(t); notes = list(t.get('notes', []))
+        for r in t.get('refs') or []:
+            g = groups.get(r.get('group'))
+            if not g: continue
+            for n in g.get('notes', []):
+                notes.append({**n, 'id': f"{r['id']}~{n['id']}", 'tick': n['tick'] + int(r.get('tick', 0)),
+                              'pitch': n['pitch'] + int(r.get('transpose', 0))})
+        t2['notes'] = notes; t2.pop('refs', None); out['tracks'].append(t2)
+    out.pop('groups', None)
+    return out
+
+
 def phrase_key(voice_id, words, track, lanes_sig, params):
     data = {'v': voice_id, 'w': [[(n.start, n.dur, n.midi, n.lyric, n.vib_depth, n.vib_rate, n.vib_start, n.energy, n.lead, n.glide, n.glide_offset) for n in w.notes] + [w.phonemes, w.scales] for w in words],
             'mode': track.get('mode', 'Default'), 'ms': track.get('mode_strength', 1.0), 'lanes': lanes_sig, 'p': params}

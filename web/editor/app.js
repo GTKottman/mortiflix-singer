@@ -1,6 +1,6 @@
 // Mortiflix Singer editor: one screen (tracks, piano roll with words on notes, lanes, inspector), rendering through
 // the singer service phrase by phrase while you edit.
-import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES, ticksPerBar } from './model.js';
+import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES, ticksPerBar, groupSpan } from './model.js';
 import { Roll } from './roll.js';
 import { Lanes } from './lanes.js';
 import { Player } from './player.js';
@@ -15,8 +15,10 @@ const midiOf = (s) => { const m = /^([A-G]#?)(-?\d)$/.exec(s || ''); return m ? 
 const app = {
   api: API, history: null, sel: new Set(), tool: 'select', renders: {}, playTick: 0, guide: true, trackId: null, voices: [], modes: [], name: null, dirty: false,
   project() { return this.history.p; },
-  track() { return this.project().tracks.find((t) => t.id === this.trackId) || this.project().tracks[0]; },
-  trackOf(p) { return p.tracks.find((t) => t.id === this.trackId) || p.tracks[0]; },
+  // while a group is being edited, "the track" is the group (its notes at their own times, from 0)
+  track() { const p = this.project(); if (this.groupEdit && p.groups?.[this.groupEdit]) return p.groups[this.groupEdit]; return p.tracks.find((t) => t.id === this.trackId) || p.tracks[0]; },
+  trackOf(p) { if (this.groupEdit && p.groups?.[this.groupEdit]) return p.groups[this.groupEdit]; return p.tracks.find((t) => t.id === this.trackId) || p.tracks[0]; },
+  groupEdit: null, selRef: null,
   edit(label, fn) { this.history.edit(label, fn); },
   changed(what) { draw(); inspector(); },
   snapTicks() { const v = Number($('snap').value); return v === 0 ? 0 : v === 3 ? PPQ / 3 : PPQ / v; },
@@ -184,6 +186,49 @@ function stepNote(pitch, dur, vel, at = app.playTick) {
   app.seek(at + dur);
 }
 
+// ---- note groups: make, place, edit (every instance follows), ungroup ----
+function makeGroup() {
+  const t = app.track(), sel = t.notes.filter((n) => app.sel.has(n.id));
+  if (app.groupEdit || sel.length < 1) { status('Select the notes to group first'); return; }
+  const p = app.project(), bar = ticksPerBar(p), t0 = Math.floor(Math.min(...sel.map((n) => n.tick)) / bar) * bar;   // groups start on a bar
+  const gid = uid(), rid = uid(), name = `Group ${Object.keys(p.groups || {}).length + 1}`;
+  app.edit('make group', (q) => {
+    const tr = app.trackOf(q); q.groups = q.groups || {};
+    q.groups[gid] = { id: gid, name, voice: tr.voice, notes: sel.map((n) => ({ ...n, tick: n.tick - t0 })) };
+    tr.notes = tr.notes.filter((n) => !app.sel.has(n.id)); tr.refs = [...(tr.refs || []), { id: rid, group: gid, tick: t0, transpose: 0 }];
+  });
+  app.sel.clear(); app.selRef = rid; changed('select'); status(`Made "${name}": duplicate it to reuse it; edit it once and every copy follows`);
+}
+function refOf(id) { return (app.project().tracks.flatMap((t) => (t.refs || []).map((r) => ({ t, r })))).find((x) => x.r.id === id); }
+function groupPanel(box) {
+  const x = refOf(app.selRef); if (!x) return false;
+  const p = app.project(), g = p.groups[x.r.group], bar = ticksPerBar(p), uses = p.tracks.reduce((a, t) => a + (t.refs || []).filter((r) => r.group === g.id).length, 0);
+  box.innerHTML = `<h3>Group</h3><div class="kv"><label>Name</label><input id="g-name"><label>At bar</label><input id="g-bar" type="number" min="1" step="0.25">
+    <label>Transpose</label><input id="g-tr" type="number" step="1"></div><p class="muted" id="g-uses"></p>
+    <p><button id="g-edit" class="btn tiny">Edit group</button> <button id="g-dup" class="btn tiny">Duplicate</button> <button id="g-un" class="btn tiny">Ungroup</button> <button id="g-del" class="btn tiny">Delete</button></p>`;
+  $('g-name').value = g.name; $('g-bar').value = +(x.r.tick / bar + 1).toFixed(2); $('g-tr').value = x.r.transpose || 0;
+  $('g-uses').textContent = `${g.notes.length} notes · used ${uses} time${uses === 1 ? '' : 's'}`;
+  const setR = (label, fn) => app.edit(label, (q) => { const r = q.tracks.flatMap((t) => t.refs || []).find((r) => r.id === app.selRef); if (r) fn(r, q); });
+  $('g-name').onchange = (e) => app.edit('rename group', (q) => { q.groups[g.id].name = e.target.value || g.name; });
+  $('g-bar').onchange = (e) => setR('move group', (r) => { r.tick = Math.max(0, Math.round((Number(e.target.value) - 1) * bar)); });
+  $('g-tr').onchange = (e) => setR('transpose group', (r) => { r.transpose = Number(e.target.value) || 0; });
+  $('g-dup').onclick = () => { const id = uid(); app.edit('duplicate group', (q) => { const tr = q.tracks.find((t) => (t.refs || []).some((r) => r.id === app.selRef)); const r = tr.refs.find((r) => r.id === app.selRef); tr.refs.push({ ...r, id, tick: r.tick + Math.ceil(groupSpan(g) / bar) * bar }); }); app.selRef = id; changed('select'); };
+  $('g-un').onclick = () => app.edit('ungroup', (q) => {
+    const tr = q.tracks.find((t) => (t.refs || []).some((r) => r.id === app.selRef)), r = tr.refs.find((r) => r.id === app.selRef);
+    tr.notes.push(...q.groups[r.group].notes.map((n) => ({ ...n, id: uid(), tick: n.tick + r.tick, pitch: n.pitch + (r.transpose || 0) })));
+    tr.refs = tr.refs.filter((z) => z.id !== r.id); if (!q.tracks.some((t) => (t.refs || []).some((z) => z.group === r.group))) delete q.groups[r.group];
+    app.selRef = null;
+  });
+  $('g-del').onclick = () => app.edit('delete group copy', (q) => { for (const t of q.tracks) t.refs = (t.refs || []).filter((r) => r.id !== app.selRef); app.selRef = null; });
+  $('g-edit').onclick = () => enterGroup(g.id);
+  return true;
+}
+function enterGroup(gid) {
+  app.groupEdit = gid; app.selRef = null; app.sel.clear(); roll.scrollTo(0);
+  $('group-bar').hidden = false; $('group-name').textContent = app.project().groups[gid].name; changed('select');
+}
+function leaveGroup() { app.groupEdit = null; app.sel.clear(); $('group-bar').hidden = true; changed('select'); scheduleRender(); }
+
 // ---- drawing the side panes ----
 function draw() { roll?.draw(); lanes?.draw(); }
 function tracks() {
@@ -262,6 +307,7 @@ function backing() {
 }
 function inspector() {
   const box = $('inspector'), t = app.track(); box.textContent = '';
+  if (app.selRef && groupPanel(box)) return;
   const sel = t.notes.filter((n) => app.sel.has(n.id));
   if (!sel.length) {
     box.innerHTML = `<p class="muted">Select a note to edit its word, phonemes, vibrato and dynamics.</p><h3>Track</h3><div class="kv">
@@ -374,7 +420,7 @@ async function init() {
   changed('select'); roll.centerOn(app.project().tracks.flatMap((t) => t.notes)); render('preview');
 
   document.querySelectorAll('[data-tool]').forEach((b) => (b.onclick = () => setTool(b.dataset.tool)));
-  $('midi').onclick = toggleMidi;
+  $('midi').onclick = toggleMidi; $('group-done').onclick = leaveGroup;
   fetch(`${API}/scripts`).then((r) => r.json()).then((list) => { for (const sc of list) $('scripts').add(new Option(sc.kind === 'yours' ? `${sc.title} (yours)` : sc.title, sc.file)); }).catch(() => {});
   $('scripts').onchange = async (e) => {
     const f = e.target.value; e.target.value = ''; if (!f) return;
@@ -425,6 +471,8 @@ function keys(e) {
   else if (mod && e.key === 's') { e.preventDefault(); save(); }
   else if (mod && e.key === 'Enter') { e.preventDefault(); render('final'); }
   else if (mod && e.key === 'k') { e.preventDefault(); check(); }
+  else if ((e.key === 'g' || e.key === 'G') && !mod) makeGroup();
+  else if (e.key === 'Escape' && app.groupEdit) leaveGroup();
   else if ((e.key === 'r' || e.key === 'R') && !mod) { const n = t.notes.find((m) => app.sel.has(m.id)); if (n) retake(n, +1); }
   else if (mod && e.key === 'a') { e.preventDefault(); t.notes.forEach((n) => app.sel.add(n.id)); changed('select'); }
   else if (mod && e.key === 'c') { clipboard = t.notes.filter((n) => app.sel.has(n.id)).map((n) => ({ ...n })); }
@@ -451,7 +499,7 @@ function demo() {
 }
 // The scripting API (Synthesizer V has one; so do we): window.singer in the browser console or a script.
 window.singer = {
-  app, render, save, open, applyLyrics, togglePlay, check, retake, midiNote: (pitch, vel = 90) => stepNote(pitch, app.snapTicks() || PPQ / 2, vel),
+  app, render, save, open, applyLyrics, togglePlay, check, retake, makeGroup, enterGroup, leaveGroup, midiNote: (pitch, vel = 90) => stepNote(pitch, app.snapTicks() || PPQ / 2, vel),
   project: () => app.project(), track: () => app.track(),
   edit: (label, fn) => app.edit(label, fn),
   select: (ids) => { app.sel = new Set(ids); app.changed('select'); },

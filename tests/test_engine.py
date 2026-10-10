@@ -108,3 +108,15 @@ def test_glide_sets_the_slide_length():
         k = lambda ms: int((ms - t0) / fm)
         return float(np.max(np.abs(np.diff(p[k(450):k(750)]))))          # steepest step per frame around the change
     assert slope(400) < 0.5 * slope(40)
+
+
+def test_note_groups_expand_to_notes():
+    from engine.project import expand_groups
+    p = {'tracks': [{'id': 't1', 'notes': [{'id': 'a', 'tick': 0, 'dur': 480, 'pitch': 60, 'lyric': 'go'}],
+                     'refs': [{'id': 'r1', 'group': 'g1', 'tick': 1920, 'transpose': 2}, {'id': 'r2', 'group': 'g1', 'tick': 3840}]}],
+         'groups': {'g1': {'name': 'hook', 'notes': [{'id': 'x', 'tick': 0, 'dur': 240, 'pitch': 62, 'lyric': 'la'},
+                                                    {'id': 'y', 'tick': 240, 'dur': 240, 'pitch': 64, 'lyric': 'la'}]}}}
+    e = expand_groups(p)
+    ns = sorted(e['tracks'][0]['notes'], key=lambda n: n['tick'])
+    assert [(n['id'], n['tick'], n['pitch']) for n in ns] == [('a', 0, 60), ('r1~x', 1920, 64), ('r1~y', 2160, 66), ('r2~x', 3840, 62), ('r2~y', 4080, 64)]
+    assert 'groups' not in e and 'refs' not in e['tracks'][0] and p['tracks'][0]['refs']      # the original is untouched

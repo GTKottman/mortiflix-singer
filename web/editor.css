@@ -78,3 +78,5 @@ select.btn { width: auto; display: inline-block; }
 .tempo .row { display: flex; gap: 5px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
 .tempo input.num { width: 56px; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 5px; font-size: 12px; padding: 2px 4px; }
 #midi.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.group-bar { padding: 6px 14px; border-bottom: 1px solid var(--accent); color: var(--ink); font-size: 13px; display: flex; gap: 10px; align-items: center; }
+.group-bar[hidden] { display: none; }

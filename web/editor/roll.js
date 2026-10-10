@@ -1,5 +1,5 @@
 // The piano roll: notes with their words inside, phonemes and the rendered pitch drawn over them.
-import { tempoMap, ticksPerBar, syllables, uid, SCALES } from './model.js';
+import { tempoMap, ticksPerBar, syllables, uid, SCALES, groupSpan, trackNotes } from './model.js';
 
 const KEYW = 52, RULER = 26;
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -44,6 +44,17 @@ export class Roll {
     this.draw();
   }
 
+  // group instances on the current track: [{ref, x1, x2, y1, y2}] in canvas pixels
+  refBoxes() {
+    const p = this.app.project(), t = this.app.track(); if (!t?.refs?.length || this.app.groupEdit) return [];
+    return t.refs.map((r) => {
+      const g = p.groups?.[r.group]; if (!g?.notes.length) return null;
+      const ps = g.notes.map((n) => n.pitch + (r.transpose || 0));
+      return { ref: r, g, x1: this.X(r.tick), x2: this.X(r.tick + groupSpan(g)), y1: this.Y(Math.max(...ps)) - 4, y2: this.Y(Math.min(...ps)) + this.rowH + 4 };
+    }).filter(Boolean);
+  }
+  refAt(x, y) { const b = this.refBoxes().find((b) => x >= b.x1 && x <= b.x2 && y >= b.y1 && y <= b.y2); return b ? b.ref : null; }
+
   // ---- mouse ----
   down(e) {
     if (e.button !== 0) return;
@@ -52,6 +63,13 @@ export class Roll {
     if (y < RULER) { app.seek(Math.max(0, this.T(x))); this.drag = { kind: 'seek' }; return; }
     if (x < KEYW) { app.previewPitch(this.P(y)); return; }
     const n = this.noteAt(e);
+    const ref = !n && this.refAt(x, y);
+    if (ref && tool !== 'pitch') {                   // a group instance: select it, drag to move it
+      app.sel.clear(); app.selRef = ref.id; app.changed('select');
+      this.drag = { kind: 'ref', start: { x, y }, ref: ref.id, tick: ref.tick, tr: ref.transpose || 0, moved: false };
+      return;
+    }
+    if (app.selRef) { app.selRef = null; app.changed('select'); }
     if (tool === 'erase') { if (n) app.edit('erase note', (p) => { const t = app.trackOf(p); t.notes = t.notes.filter((m) => m.id !== n.id); }); return; }
     if (tool === 'pitch') { this.drag = { kind: 'pitch', pts: [[this.T(x), this.pitchAtY(y)]] }; return; }
     if (n) {
@@ -83,6 +101,11 @@ export class Roll {
     if (d.kind === 'box') { d.b = { x, y }; this.draw(); return; }
     if (d.kind === 'pitch') { d.pts.push([this.T(x), this.pitchAtY(y)]); this.draw(); return; }
     const dt = this.snap((x - d.start.x) / this.pxPerTick), dp = Math.round(-(y - d.start.y) / this.rowH);
+    if (d.kind === 'ref') {
+      const r = (app.track().refs || []).find((q) => q.id === d.ref);
+      if (r) { r.tick = Math.max(0, d.tick + dt); r.transpose = d.tr + dp; }
+      d.moved = true; this.draw(); return;
+    }
     const live = this.notes();
     if (d.kind === 'move') {
       for (const o of d.orig) { const n = live.find((m) => m.id === o.id); if (n) { n.tick = Math.max(0, o.tick + dt); n.pitch = o.pitch + dp; } }
@@ -96,6 +119,13 @@ export class Roll {
   up(e) {
     const d = this.drag; this.drag = null; if (!d) return;
     const app = this.app;
+    if (d.kind === 'ref') {
+      if (!d.moved) return;
+      const r = (app.track().refs || []).find((q) => q.id === d.ref); if (!r) return;
+      const final = { tick: r.tick, transpose: r.transpose }; r.tick = d.tick; r.transpose = d.tr;      // undoable, like note drags
+      app.edit('move group', (p) => { const q = app.trackOf(p).refs.find((x) => x.id === d.ref); Object.assign(q, final); });
+      return;
+    }
     if (d.kind === 'box') {
       const [x1, x2] = [Math.min(d.a.x, d.b.x), Math.max(d.a.x, d.b.x)], [y1, y2] = [Math.min(d.a.y, d.b.y), Math.max(d.a.y, d.b.y)];
       for (const n of this.notes()) { const nx = this.X(n.tick), ny = this.Y(n.pitch); if (nx + 2 < x2 && this.X(n.tick + n.dur) > x1 && ny + this.rowH > y1 && ny < y2) app.sel.add(n.id); }
@@ -164,6 +194,21 @@ export class Roll {
     const msToTick = (ms) => tm.toTick(ms);
     // other tracks, faint
     for (const o of p.tracks) { if (o.id === t.id) continue; g.fillStyle = c('--muted'); g.globalAlpha = 0.18; for (const n of o.notes) g.fillRect(this.X(n.tick), this.Y(n.pitch) + 3, n.dur * this.pxPerTick, this.rowH - 6); g.globalAlpha = 1; }
+    // group instances: a labelled box with the group's notes inside, outlined
+    const accentG = c('--accent');
+    for (const b of this.refBoxes()) {
+      if (b.x1 > W || b.x2 < KEYW) continue;
+      const on = this.app.selRef === b.ref.id;
+      g.fillStyle = accentG; g.globalAlpha = on ? 0.16 : 0.07; g.fillRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1); g.globalAlpha = 1;
+      g.strokeStyle = accentG; g.lineWidth = on ? 2 : 1; g.setLineDash([5, 3]); g.strokeRect(b.x1 + 0.5, b.y1 + 0.5, b.x2 - b.x1, b.y2 - b.y1); g.setLineDash([]);
+      g.fillStyle = accentG; g.font = '11px Sora, sans-serif'; g.fillText(`${b.g.name}${b.ref.transpose ? ` ${b.ref.transpose > 0 ? '+' : ''}${b.ref.transpose}` : ''}`, b.x1 + 4, b.y1 - 3);
+      for (const n of b.g.notes) {
+        const x = this.X(n.tick + b.ref.tick), y = this.Y(n.pitch + (b.ref.transpose || 0)), w = Math.max(3, n.dur * this.pxPerTick);
+        g.strokeStyle = accentG; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 1.5, w - 1, this.rowH - 3);
+        g.save(); g.beginPath(); g.rect(x, y, w, this.rowH); g.clip(); g.fillStyle = c('--ink'); g.globalAlpha = 0.8;
+        g.font = `${Math.min(13, this.rowH - 3)}px Sora, sans-serif`; g.fillText(n.lyric || '', x + 4, y + this.rowH - 4); g.restore();
+      }
+    }
     // notes
     const accent = c('--accent'), ink = c('--ink');
     const tooMany = this.app.syllableTrouble();
@@ -180,10 +225,11 @@ export class Roll {
     const r = this.app.renders[t.id] || [];
     g.font = '10px Sora, sans-serif';
     const showPhones = this.pxPerTick > 0.2 && this.rowH >= 14;      // phonemes only when there is room to read them
+    const allNotes = this.app.groupEdit ? t.notes : trackNotes(p, t);  // group copies' phonemes sit under their notes too
     for (const ph of r) {
       for (const [sym, s] of showPhones ? ph.phones || [] : []) {
         const x = this.X(msToTick(s)); if (x < KEYW || x > W) continue;
-        const n = t.notes.find((m) => { const a = tm.toMs(m.tick); return s >= a - 400 && s < tm.toMs(m.tick + m.dur); });
+        const n = allNotes.find((m) => { const a = tm.toMs(m.tick); return s >= a - 400 && s < tm.toMs(m.tick + m.dur); });
         const y = n ? this.Y(n.pitch) + this.rowH + 10 : RULER + 12;
         g.fillStyle = c('--muted'); g.fillText(sym, x + 1, y);
         g.strokeStyle = c('--muted'); g.globalAlpha = 0.4; g.beginPath(); g.moveTo(x, y - 9); g.lineTo(x, y + 1); g.stroke(); g.globalAlpha = 1;
