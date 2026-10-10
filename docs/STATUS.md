@@ -22,7 +22,7 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 | --- | --- | --- |
 | AI pitch with an expressiveness amount; manual pitch drawing | ✅ | Expression slider, Pitch tool |
 | Vibrato, transition (glide), scoop, overshoot per note | ✅ | `test_glide_sets_the_slide_length`; scoop/overshoot curves checked |
-| Snap to scale | 🟡 | key/scale highlight in the roll; the Tune tool snaps audio to a key; pitch drawing does not snap yet |
+| Snap to scale | ✅ | key/scale highlight; with a key set the Pitch tool snaps to the scale (Alt = free); the Tune tool snaps audio to a key |
 | Retakes of pitch and tone per phrase, A/B between takes | ✅ | `test_tone_retake_keeps_the_pitch`; all takes cached and selectable (timing retakes: the duration model is deterministic, so a pitch take is the timing take) |
 | Lanes: tension, breathiness, voicing, energy, gender, velocity | ✅ | mouth opening: no open model exposes it |
 | Vocal modes, user-defined, with strength | ✅ | built-in six + your own (Song panel) |
@@ -62,4 +62,4 @@ Updated 2026-10-10. ✅ built and tested · 🟡 partly · ❌ not yet. "Tested"
 
 - Record in the Booth (about an hour of kept takes) and train the first real voice.
 - A small fast vocoder distilled from BigVGAN on your recordings, for CPU users.
-- Snap the pitch tool to the scale; AU plugin; more languages.
+- AU plugin; more languages.

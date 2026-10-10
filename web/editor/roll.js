@@ -74,7 +74,7 @@ export class Roll {
     }
     if (app.selRef) { app.selRef = null; app.changed('select'); }
     if (tool === 'erase') { if (n) app.edit('erase note', (p) => { const t = app.trackOf(p); t.notes = t.notes.filter((m) => m.id !== n.id); }); return; }
-    if (tool === 'pitch') { this.drag = { kind: 'pitch', pts: [[this.T(x), this.pitchAtY(y)]] }; return; }
+    if (tool === 'pitch') { this.drag = { kind: 'pitch', pts: [[this.T(x), this.pitchAtY(y, e.altKey)]] }; return; }
     if (n) {
       if (!app.sel.has(n.id)) { if (!e.shiftKey) app.sel.clear(); app.sel.add(n.id); }
       else if (e.shiftKey) { app.sel.delete(n.id); app.changed('select'); return; }
@@ -96,7 +96,14 @@ export class Roll {
     if (!e.shiftKey) app.sel.clear();
     this.drag = { kind: 'box', a: { x, y }, b: { x, y } }; app.changed('select');
   }
-  pitchAtY(y) { return this.top - (y - RULER) / this.rowH + 0.5; }
+  pitchAtY(y, free = false) {
+    const m = this.top - (y - RULER) / this.rowH + 0.5, p = this.app.project();
+    if (free || !p.key || !SCALES[p.key.scale]) return m;
+    // with a key set, drawn pitch snaps to the nearest note of the scale (hold Alt to draw freely)
+    const deg = SCALES[p.key.scale], base = Math.floor(m) - 12, cands = [];
+    for (let k = base; k <= base + 24; k++) if (deg.includes(((k - p.key.root) % 12 + 12) % 12)) cands.push(k);
+    return cands.reduce((a, b) => (Math.abs(b - m) < Math.abs(a - m) ? b : a), cands[0]);
+  }
   move(e) {
     const d = this.drag; if (!d) {
       const n = this.cv.matches(':hover') ? this.noteAt(e) : null; const { x, y } = this.pos(e);
@@ -111,7 +118,7 @@ export class Roll {
       d.x = Math.min(X(ph[d.i][2]) - 3, Math.max(X(ph[d.i - 1][1]) + 3, x)); this.draw(); return;
     }
     if (d.kind === 'box') { d.b = { x, y }; this.draw(); return; }
-    if (d.kind === 'pitch') { d.pts.push([this.T(x), this.pitchAtY(y)]); this.draw(); return; }
+    if (d.kind === 'pitch') { d.pts.push([this.T(x), this.pitchAtY(y, e.altKey)]); this.draw(); return; }
     const dt = this.snap((x - d.start.x) / this.pxPerTick), dp = Math.round(-(y - d.start.y) / this.rowH);
     if (d.kind === 'ref') {
       const r = (app.track().refs || []).find((q) => q.id === d.ref);
