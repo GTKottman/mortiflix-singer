@@ -157,6 +157,8 @@ export class Roll {
     // ruler
     g.fillStyle = c('--bg'); g.fillRect(0, 0, W, RULER); g.fillStyle = c('--muted'); g.font = '11px Sora, sans-serif';
     for (let k = Math.floor(this.x0 / bar) * bar; k <= t1; k += bar) { const x = this.X(k); if (x >= KEYW) g.fillText(String(k / bar + 1), x + 3, 16); }
+    // tempo changes after the first: their BPM on the ruler, in the accent colour
+    g.fillStyle = c('--accent'); for (const tp of p.tempo) { if (!tp.tick) continue; const x = this.X(tp.tick); if (x >= KEYW && x <= W) { g.fillRect(x, 0, 1.5, RULER); g.fillText(`${+tp.bpm.toFixed(2)}`, x + 4, 24); } }
     g.strokeStyle = c('--line'); g.beginPath(); g.moveTo(0, RULER); g.lineTo(W, RULER); g.stroke();
     if (!t) return;
     const msToTick = (ms) => tm.toTick(ms);

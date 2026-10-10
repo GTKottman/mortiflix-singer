@@ -1,6 +1,6 @@
 // Mortiflix Singer editor: one screen (tracks, piano roll with words on notes, lanes, inspector), rendering through
 // the singer service phrase by phrase while you edit.
-import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES } from './model.js';
+import { History, newProject, newTrack, LANES, tempoMap, splitLyrics, syllables, uid, PPQ, SCALES, ticksPerBar } from './model.js';
 import { Roll } from './roll.js';
 import { Lanes } from './lanes.js';
 import { Player } from './player.js';
@@ -172,6 +172,25 @@ function tracks() {
     box.append(el);
   }
 }
+function tempoPane() {
+  const p = app.project(), box = $('tempo'), bar = ticksPerBar(p); box.textContent = '';
+  const marks = [...p.tempo].sort((a, b) => a.tick - b.tick).filter((t) => t.tick > 0);
+  for (const tp of marks) {
+    const row = document.createElement('div'); row.className = 'row';
+    const lab = document.createElement('span'); lab.textContent = `Bar ${+(tp.tick / bar + 1).toFixed(2)}`;
+    const bpm = document.createElement('input'); bpm.type = 'number'; bpm.className = 'num'; bpm.step = '0.1'; bpm.min = '20'; bpm.max = '300'; bpm.value = tp.bpm;
+    bpm.onchange = () => app.edit('tempo change', (q) => { const m = q.tempo.find((x) => x.tick === tp.tick); if (m) m.bpm = Number(bpm.value) || m.bpm; });
+    const rm = document.createElement('button'); rm.className = 'btn tiny'; rm.textContent = '×'; rm.title = 'remove this tempo change';
+    rm.onclick = () => app.edit('remove tempo change', (q) => { q.tempo = q.tempo.filter((x) => x.tick !== tp.tick); });
+    row.append(lab, bpm, document.createTextNode('BPM'), rm); box.append(row);
+  }
+  const add = document.createElement('div'); add.className = 'row';
+  const at = document.createElement('input'); at.type = 'number'; at.className = 'num'; at.min = '2'; at.step = '1'; at.value = Math.max(2, Math.floor(app.playTick / bar) + 1); at.title = 'bar';
+  const nb = document.createElement('input'); nb.type = 'number'; nb.className = 'num'; nb.step = '0.1'; nb.value = p.tempo[0].bpm; nb.title = 'BPM';
+  const go = document.createElement('button'); go.className = 'btn tiny'; go.textContent = 'Add';
+  go.onclick = () => { const tick = Math.round((Math.max(2, Number(at.value)) - 1) * bar); app.edit('tempo change', (q) => { q.tempo = q.tempo.filter((x) => x.tick !== tick); q.tempo.push({ tick, bpm: Number(nb.value) || q.tempo[0].bpm }); q.tempo.sort((a, b) => a.tick - b.tick); }); };
+  add.append(document.createTextNode('At bar'), at, nb, go); box.append(add);
+}
 function backing() {
   const box = $('backing'), bk = app.project().backing; box.textContent = '';
   const pick = document.createElement('label'); pick.className = 'btn tiny'; pick.textContent = bk ? 'Replace' : 'Add music to sing against';
@@ -248,7 +267,7 @@ function changed(label) {
   if (!app.project().tracks.some((t) => t.id === app.trackId)) app.trackId = app.project().tracks[0].id;
   $('title').value = app.project().title || ''; $('bpm').value = app.project().tempo[0].bpm; $('ts').value = app.project().time_sig.join('/');
   const k = app.project().key; $('key-root').value = k ? String(k.root) : ''; $('key-scale').value = k?.scale || 'major';
-  tracks(); backing(); inspector(); draw();
+  tracks(); tempoPane(); backing(); inspector(); draw();
   if (!['select'].includes(label) && !/backing/.test(label || '')) scheduleRender();
 }
 function open(project, name = null) {
