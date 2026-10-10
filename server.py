@@ -380,6 +380,23 @@ class Trainer:
         return {'stopped': True}
 
 
+def tidy(home: Path, cache_gb=2.0, days=30):
+    """Keep the disk in check: the render cache keeps its most recently used 2 GB (a render is made again if needed);
+    Tune and bridge files older than 30 days go."""
+    cache = home / 'cache'
+    if cache.exists():
+        files = sorted((f for f in cache.iterdir() if f.is_file()), key=lambda f: f.stat().st_atime, reverse=True)
+        total = 0
+        for f in files:
+            total += f.stat().st_size
+            if total > cache_gb * 2**30: f.unlink(missing_ok=True)
+    cutoff = time.time() - days * 86400
+    for d in (home / 'tune', home / 'bridge'):
+        if not d.exists(): continue
+        for f in d.rglob('*'):
+            if f.is_file() and f.stat().st_mtime < cutoff: f.unlink(missing_ok=True)
+
+
 class Handler(BaseHTTPRequestHandler):
     store: Store = None
     trainer: Trainer = None
@@ -744,6 +761,7 @@ def main():
     ap.add_argument('--port', type=int, help='serve on 127.0.0.1:PORT instead of a socket file (Windows development)')
     a = ap.parse_args()
     home = Path(a.home); home.mkdir(parents=True, exist_ok=True)
+    threading.Thread(target=tidy, args=(home,), daemon=True).start()
     if a.stdio:
         Handler.store = Store(home); Handler.trainer = Trainer(Handler.store); Handler.downloads = Downloads(Handler.store); Handler.bridge = Bridge(Handler.store)
         return serve_stdio()

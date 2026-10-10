@@ -29,3 +29,14 @@ def test_project_names_with_spaces(tmp_path):
     p.stdin.write(json.dumps({'id': 1, 'len': len(raw)}).encode() + b'\n' + raw); p.stdin.close()
     h = json.loads(p.stdout.readline()); r = p.stdout.read(h['len']); p.wait(timeout=10)
     assert r.startswith(b'HTTP/1.0 200') and (tmp_path / 'projects' / 'My song.msing').exists()
+
+
+def test_tidy_keeps_the_newest_renders(tmp_path):
+    import os, time
+    sys.path.insert(0, str(ROOT))
+    from server import tidy
+    c = tmp_path / 'cache'; c.mkdir()
+    for i in range(5):
+        f = c / f'{i}.wav'; f.write_bytes(b'x' * 1000); os.utime(f, (time.time() - 100 + i, time.time() - 100 + i))
+    tidy(tmp_path, cache_gb=2500 / 2**30)          # room for two files
+    assert sorted(f.name for f in c.iterdir()) == ['3.wav', '4.wav']
